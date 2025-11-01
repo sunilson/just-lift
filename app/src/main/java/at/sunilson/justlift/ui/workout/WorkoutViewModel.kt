@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.android.annotation.KoinViewModel
 
@@ -27,6 +28,9 @@ import org.koin.android.annotation.KoinViewModel
 class WorkoutViewModel(
     private val vitruvianDeviceManager: VitruvianDeviceManager
 ) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(WorkoutUiState())
+    val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
 
     private val _connectedDevice = MutableStateFlow<Peripheral?>(null)
     val connectedDevice: StateFlow<Peripheral?> = _connectedDevice.asStateFlow()
@@ -78,8 +82,8 @@ class WorkoutViewModel(
                 vitruvianDeviceManager.startJustLiftEchoWorkout(
                     device = _connectedDevice.value ?: return@launch,
                     difficulty = VitruvianDeviceManager.EchoDifficulty.HARD,
-                    eccentricPercentage = 1.2,
-                    maxReps = 10
+                    eccentricPercentage = uiState.value.eccentricSliderValue.toDouble(),
+                    maxReps = null
                 )
             } catch (e: Exception) {
                 Log.e("WorkoutViewModel", "Error starting workout", e)
@@ -115,4 +119,17 @@ class WorkoutViewModel(
             }
         }
     }
+
+    fun onEccentricSliderValueChange(value: Float) {
+        _uiState.update { it.copy(eccentricSliderValue = value) }
+    }
+
+    fun onRepetitionsSliderValueChange(value: Float) {
+        _uiState.update { it.copy(repetitionsSliderValue = value.toInt()) }
+    }
+
+    data class WorkoutUiState(
+        val eccentricSliderValue: Float = 1.0f,
+        val repetitionsSliderValue: Int = 8
+    )
 }

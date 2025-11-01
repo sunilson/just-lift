@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SheetValue
@@ -26,6 +27,7 @@ fun WorkoutDestination(
     navController: NavController,
     viewModel: WorkoutViewModel = koinViewModel()
 ) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val connectedDevice by viewModel.connectedDevice.collectAsStateWithLifecycle()
     val connectedDeviceState by viewModel.connectedDeviceState.collectAsStateWithLifecycle(initialValue = State.Disconnected())
     val availableDevices by viewModel.availableDevices.collectAsStateWithLifecycle(initialValue = emptySet())
@@ -53,13 +55,20 @@ fun WorkoutDestination(
             )
         }
     ) {
-        WorkoutScreen(
-            connectedDevice = connectedDevice,
-            workoutState = workoutState,
-            onStartWorkoutClicked = viewModel::onStartWorkoutClicked,
-            onStopWorkoutClicked = viewModel::onStopWorkoutClicked,
-            onDisconnectClicked = viewModel::onDisconnectClicked
-        )
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .padding(it)) {
+            WorkoutScreen(
+                uiState = uiState,
+                onEccentricSliderValueChange = viewModel::onEccentricSliderValueChange,
+                onRepetitionsSliderValueChange = viewModel::onRepetitionsSliderValueChange,
+                connectedDevice = connectedDevice,
+                workoutState = workoutState,
+                onStartWorkoutClicked = viewModel::onStartWorkoutClicked,
+                onStopWorkoutClicked = viewModel::onStopWorkoutClicked,
+                onDisconnectClicked = viewModel::onDisconnectClicked
+            )
+        }
         AnimatedVisibility(
             visible = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded
         ) {

@@ -21,12 +21,15 @@ I might look into it.
 
 ## TODO
 
-- [] Add detekt
-- [] Add ktlint
+- [] Static Analysis
+    - [] Add detekt
+    - [] Add ktlint
 - [] Add CI with GitHub Actions
-- - [] Static Analysis
-- - [] Build APK and publish to Releases
-- [] App Logging
-- [] Bluetooth Logging
-- [] Starting Echo mode
+    - [] Static Analysis
+    - [] Build APK and publish to Releases
+- [] Logging
+    - [] Add logging library
+    - [] Log bluetooth communication for easier debugging
 - [] Convert to Multiplatform project
+- [] Echo mode
+    - [] Stop workout automatically when lowering cables to ground

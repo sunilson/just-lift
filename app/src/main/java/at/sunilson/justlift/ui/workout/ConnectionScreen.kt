@@ -3,10 +3,10 @@ package at.sunilson.justlift.ui.workout
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -20,8 +20,13 @@ fun ConnectionScreen(
     availableDevices: List<Peripheral>,
     onDeviceSelected: (Peripheral) -> Unit
 ) {
-    Column(modifier = Modifier.height(400.dp).padding(16.dp)) {
-        Text(text = "Available Devices:")
+    Column(
+        modifier = Modifier
+            .height(400.dp)
+            .padding(16.dp)
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(text = "Available Devices:", style = MaterialTheme.typography.headlineMedium)
         availableDevices.forEach { peripheral ->
             Text(modifier = Modifier.clickable {
                 onDeviceSelected(peripheral)
