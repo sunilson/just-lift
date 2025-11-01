@@ -7,28 +7,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 // Set of Material typography styles to start with
+private val defaultTypography = Typography()
 val Typography = Typography(
-    bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.5.sp
-    )
-    /* Other default text styles to override
-    titleLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
-        letterSpacing = 0.sp
-    ),
-    labelSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
-    )
-    */
+    displayLarge = defaultTypography.displayLarge,
+    displayMedium = defaultTypography.displayMedium,
+    displaySmall = defaultTypography.displaySmall,
+    headlineLarge = defaultTypography.headlineLarge,
+    headlineMedium = defaultTypography.headlineMedium,
+    headlineSmall = defaultTypography.headlineSmall,
+    titleLarge = defaultTypography.titleLarge,
+    titleMedium = defaultTypography.titleMedium,
+    titleSmall = defaultTypography.titleSmall,
+    bodyLarge = defaultTypography.bodyLarge,
+    bodyMedium = defaultTypography.bodyMedium,
+    bodySmall = defaultTypography.bodySmall,
+    labelLarge = defaultTypography.labelLarge,
+    labelMedium = defaultTypography.labelMedium,
+    labelSmall = defaultTypography.labelSmall
 )

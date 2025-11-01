@@ -1,0 +1,32 @@
+# Just Lift
+
+Native Android app to use the Vitruvian Trainer "Just Lift Echo" mode without the official app or
+any connectivity.
+
+## Getting the app
+
+At the moment only an apk download is available. Publishing to Google Play is too risky for me due
+to legal reasons.
+
+You can find the latest release here: TODO
+
+## Other modes
+
+At the moment I have no plans to implement other modes like "Guided Workouts" or "Custom Workouts".
+
+## iOS & Multiplatform
+
+Could be done as well, as all used libraries would support Multiplatform. If enough interest exists
+I might look into it.
+
+## TODO
+
+- [] Add detekt
+- [] Add ktlint
+- [] Add CI with GitHub Actions
+- - [] Static Analysis
+- - [] Build APK and publish to Releases
+- [] App Logging
+- [] Bluetooth Logging
+- [] Starting Echo mode
+- [] Convert to Multiplatform project

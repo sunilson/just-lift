@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
+    kotlin("plugin.serialization") version "2.2.0"
 }
 
 android {
@@ -12,7 +14,7 @@ android {
 
     defaultConfig {
         applicationId = "at.sunilson.justlift"
-        minSdk = 29
+        minSdk = 31
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -51,6 +53,21 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
+    implementation(libs.androidx.compose.ui.navigation)
+    implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.nordicsemi.ble)
+    implementation(libs.kable.core)
+    implementation(libs.kable.default.permissions)
+    implementation(libs.accompanist.permissions)
+    implementation(project.dependencies.platform(libs.koin.bom))
+    implementation(libs.koin.android)
+    implementation(libs.koin.android.compose)
+    implementation(libs.koin.android.compose.navigation)
+    implementation(platform(libs.koin.annotations.bom))
+    implementation(libs.koin.annotations)
+    implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.4.0")
+    ksp(libs.koin.ksp.compiler)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
