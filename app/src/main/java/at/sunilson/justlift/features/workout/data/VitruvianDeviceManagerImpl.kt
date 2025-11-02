@@ -10,22 +10,22 @@ import com.juul.kable.WriteType
 import com.juul.kable.characteristicOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.runningFold
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.koin.core.annotation.Single
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.math.roundToInt
 
 /**
  * Vitruvian device BLE manager using Kable (https://github.com/JuulLabs/kable).
@@ -108,7 +108,10 @@ class VitruvianDeviceManagerImpl(
                                 // Reset timer before stopping to avoid loops
                                 session.bottomHoldSince = null
                                 // Best-effort stop
-                                try { stopWorkout(device) } catch (_: Throwable) {}
+                                try {
+                                    stopWorkout(device)
+                                } catch (_: Throwable) {
+                                }
                             }
                         } else {
                             session.bottomHoldSince = null
@@ -142,7 +145,7 @@ class VitruvianDeviceManagerImpl(
         var upwardReps: Int = 0,
         var downwardReps: Int = 0,
         var halfRepNotifications: Int = 0,
-        var calibrationRepsToSkip: Int = 3,
+        var calibrationRepsCompleted: Int = 0,
         var machineJob: Job? = null,
         var timeJob: Job? = null,
         var repJob: Job? = null,
@@ -152,7 +155,9 @@ class VitruvianDeviceManagerImpl(
         // Auto-stop detection
         var bottomHoldSince: Long? = null,
         // Debug logging throttle
-        var lastLogAtMillis: Long = 0L
+        var lastLogAtMillis: Long = 0L,
+        // Behavior flags
+        var stopAtLastTopRep: Boolean = false
     )
 
     private val sessions = mutableMapOf<String, WorkoutSession>()
@@ -185,7 +190,8 @@ class VitruvianDeviceManagerImpl(
         device: Peripheral,
         difficulty: VitruvianDeviceManager.EchoDifficulty,
         eccentricPercentage: Double,
-        maxReps: Int?
+        maxReps: Int?,
+        stopAtLastTopRep: Boolean
     ) {
         // Send INIT sequence first (per reverse engineered protocol)
         writeWithResponse(device, RX_CHARACTERISTIC, buildInitCommand())
@@ -215,9 +221,10 @@ class VitruvianDeviceManagerImpl(
         session.upwardReps = 0
         session.downwardReps = 0
         session.halfRepNotifications = 0
-        session.calibrationRepsToSkip = 3
+        session.calibrationRepsCompleted = 0
+        session.stopAtLastTopRep = stopAtLastTopRep
         session.state.value = VitruvianDeviceManager.WorkoutState(
-            calibrating = true,
+            calibratingRepsCompleted = session.calibrationRepsCompleted,
             maxReps = maxReps,
             upwardRepetitionsCompleted = 0,
             downwardRepetitionsCompleted = 0,
@@ -247,14 +254,13 @@ class VitruvianDeviceManagerImpl(
                     session.halfRepNotifications += 1
                     val isUpwardCompletion = (session.halfRepNotifications % 2 == 1)
 
-                    // During calibration, ignore first 3 full reps (i.e., first 6 half-reps)
-                    if (session.calibrationRepsToSkip > 0) {
-                        // Only decrement calibration counter when a full rep (downward completion) occurs
+                    // During calibration, perform 3 full reps without counting toward totals
+                    if (session.calibrationRepsCompleted < CALIBRATION_REPS) {
                         if (!isUpwardCompletion) {
-                            session.calibrationRepsToSkip -= 1
+                            // Count only full reps when bottom is reached
+                            session.calibrationRepsCompleted += 1
+                            session.state.value = curr.copy(calibratingRepsCompleted = session.calibrationRepsCompleted)
                         }
-                        val stillCalibrating = session.calibrationRepsToSkip > 0
-                        session.state.value = curr.copy(calibrating = stillCalibrating)
                         // Do not count reps during calibration
                         return@collect
                     }
@@ -268,16 +274,25 @@ class VitruvianDeviceManagerImpl(
                     }
 
                     val updated = curr.copy(
-                        calibrating = false,
+                        calibratingRepsCompleted = CALIBRATION_REPS,
                         upwardRepetitionsCompleted = session.upwardReps,
                         downwardRepetitionsCompleted = session.downwardReps
                     )
                     session.state.value = updated
 
-                    // Stop only when downward reps reach target
                     val target = session.maxReps
-                    if (target != null && session.downwardReps >= target && !isUpwardCompletion) {
-                        stopWorkout(device)
+                    if (target != null) {
+                        if (session.stopAtLastTopRep) {
+                            // Stop on upward completion when upward reps reach target
+                            if (isUpwardCompletion && session.upwardReps >= target) {
+                                stopWorkout(device)
+                            }
+                        } else {
+                            // Default: stop on downward completion when bottom reps reach target
+                            if (!isUpwardCompletion && session.downwardReps >= target) {
+                                stopWorkout(device)
+                            }
+                        }
                     }
                 }
             } catch (_: Throwable) {
@@ -406,6 +421,7 @@ class VitruvianDeviceManagerImpl(
         val leftKg = f7 / 100.0
         return leftKg to rightKg
     }
+
     companion object {
         // Positions are u16; values > 50000 are considered invalid spikes per JS reference
         private const val POSITION_SPIKE_FILTER_MAX: Int = 50000
@@ -419,7 +435,8 @@ class VitruvianDeviceManagerImpl(
         private const val POSITION_LOG_THROTTLE_MS: Long = 1000L
 
         private const val AUTO_STOP_HOLD_MS: Long = 5_000L
-        private const val BOTTOM_POS_THRESHOLD: Double = 0.02 // 2% of travel considered bottom
+        private const val BOTTOM_POS_THRESHOLD: Double = 0.05 // 2% of travel considered bottom
         private const val MONITOR_INTERVAL_MS: Long = 100
+        private const val CALIBRATION_REPS: Int = 3
     }
 }

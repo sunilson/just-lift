@@ -9,6 +9,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,6 +39,7 @@ class WorkoutViewModel(
     private var baselineLeft: Double? = null
     private var baselineRight: Double? = null
     private var lastAutoStartAt: Long = 0L
+    private var autoStartTickerJob: kotlinx.coroutines.Job? = null
 
     init {
         observeConnectedPeripheralState()
@@ -142,9 +144,10 @@ class WorkoutViewModel(
     private fun observeWorkoutState() {
         viewModelScope.launch {
             this@WorkoutViewModel._connectedPeripheral
-                .flatMapLatest { if (it != null) vitruvianDeviceManager.getWorkoutStateFlow(it) else flowOf(
-                    null
-                )
+                .flatMapLatest {
+                    if (it != null) vitruvianDeviceManager.getWorkoutStateFlow(it) else flowOf(
+                        null
+                    )
                 }
                 .collect { workoutState -> _state.update { state -> state.copy(workoutState = workoutState) } }
         }
@@ -153,10 +156,7 @@ class WorkoutViewModel(
     private fun observeMachineState() {
         viewModelScope.launch {
             this@WorkoutViewModel._connectedPeripheral
-                .flatMapLatest { if (it != null) vitruvianDeviceManager.getMachineStateFlow(it) else flowOf(
-                    null
-                )
-                }
+                .flatMapLatest { if (it != null) vitruvianDeviceManager.getMachineStateFlow(it) else flowOf(null) }
                 .collect { machineState ->
                     // Always expose machine state
                     _state.update { s -> s.copy(machineState = machineState) }
@@ -166,33 +166,24 @@ class WorkoutViewModel(
 
                     if (machineState == null) {
                         resetAutoStart()
-                        // Also clear countdown when no machine state
-                        _state.update { it.copy(autoStartInSeconds = null) }
                         return@collect
                     }
 
                     // If workout already active, no auto start; clear countdown
                     if (workoutActive) {
                         resetAutoStart()
-                        if (state.value.autoStartInSeconds != null) {
-                            _state.update { it.copy(autoStartInSeconds = null) }
-                        }
                         return@collect
                     }
 
-                    val left = machineState.positionCableLeft
-                    val right = machineState.positionCableRight
-
-                    val liftedLeft = left >= LIFTED_POS_THRESHOLD
-                    val liftedRight = right >= LIFTED_POS_THRESHOLD
+                    val positionLeft = machineState.positionCableLeft
+                    val positionRight = machineState.positionCableRight
+                    val liftedLeft = positionLeft >= LIFTED_POS_THRESHOLD
+                    val liftedRight = positionRight >= LIFTED_POS_THRESHOLD
                     val anyLifted = liftedLeft || liftedRight
 
                     if (!anyLifted) {
                         // Reset when both at bottom
                         resetAutoStart()
-                        if (state.value.autoStartInSeconds != null) {
-                            _state.update { it.copy(autoStartInSeconds = null) }
-                        }
                         return@collect
                     }
 
@@ -201,13 +192,24 @@ class WorkoutViewModel(
                     // Initialize baselines at first lift
                     if (startHoldSinceMillis == null) {
                         startHoldSinceMillis = now
-                        baselineLeft = left
-                        baselineRight = right
+                        baselineLeft = positionLeft
+                        baselineRight = positionRight
+                        // Start a lightweight ticker to ensure UI countdown updates smoothly
+                        autoStartTickerJob?.cancel()
+                        autoStartTickerJob = viewModelScope.launch {
+                            while (startHoldSinceMillis != null && state.value.workoutState == null) {
+                                val start = startHoldSinceMillis ?: break
+                                val remMs = AUTO_START_HOLD_MS - (System.currentTimeMillis() - start)
+                                val secondsLeftTicker = if (remMs > 0) kotlin.math.ceil(remMs / 1000.0).toInt() else 0
+                                _state.update { it.copy(autoStartInSeconds = secondsLeftTicker) }
+                                delay(250)
+                            }
+                        }
                     }
 
                     // Check if held near baseline (within epsilon)
-                    val withinLeft = baselineLeft?.let { abs(left - it) <= HOLD_EPSILON } ?: true
-                    val withinRight = baselineRight?.let { abs(right - it) <= HOLD_EPSILON } ?: true
+                    val withinLeft = baselineLeft?.let { abs(positionLeft - it) <= HOLD_EPSILON } ?: true
+                    val withinRight = baselineRight?.let { abs(positionRight - it) <= HOLD_EPSILON } ?: true
 
                     // We consider hold valid if each lifted cable stays within epsilon; non-lifted cable ignored
                     val holdValid = ((!liftedLeft || withinLeft) && (!liftedRight || withinRight))
@@ -215,8 +217,8 @@ class WorkoutViewModel(
                     if (!holdValid) {
                         // Movement detected -> restart timer/baseline
                         startHoldSinceMillis = now
-                        baselineLeft = left
-                        baselineRight = right
+                        baselineLeft = positionLeft
+                        baselineRight = positionRight
                         _state.update { it.copy(autoStartInSeconds = AUTO_START_SECONDS) }
                         return@collect
                     }
@@ -230,20 +232,18 @@ class WorkoutViewModel(
                         // Debounce successive triggers
                         if (now - lastAutoStartAt > AUTO_START_DEBOUNCE_MS) {
                             lastAutoStartAt = now
-                            // Fire workout start with current parameters
                             viewModelScope.launch {
                                 try {
                                     vitruvianDeviceManager.startWorkout(
                                         device = device,
                                         difficulty = VitruvianDeviceManager.EchoDifficulty.HARD,
                                         eccentricPercentage = state.value.eccentricSliderValue.toDouble(),
-                                        maxReps = null
+                                        maxReps = null,
+                                        stopAtLastTopRep = false
                                     )
                                 } catch (e: Exception) {
                                     Log.e("WorkoutViewModel", "Auto start failed", e)
                                 } finally {
-                                    // Clear countdown
-                                    _state.update { it.copy(autoStartInSeconds = null) }
                                     resetAutoStart()
                                 }
                             }
@@ -257,6 +257,9 @@ class WorkoutViewModel(
         startHoldSinceMillis = null
         baselineLeft = null
         baselineRight = null
+        autoStartTickerJob?.cancel()
+        autoStartTickerJob = null
+        _state.update { it.copy(autoStartInSeconds = null) }
     }
 
     data class State(

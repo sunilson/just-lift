@@ -34,7 +34,8 @@ interface VitruvianDeviceManager {
         difficulty: EchoDifficulty,
         @FloatRange(0.0, 1.3)
         eccentricPercentage: Double,
-        maxReps: Int? = null
+        maxReps: Int? = null,
+        stopAtLastTopRep: Boolean = false
     )
 
     /**
@@ -43,7 +44,7 @@ interface VitruvianDeviceManager {
     suspend fun stopWorkout(device: Peripheral)
 
     data class WorkoutState(
-        val calibrating: Boolean,
+        val calibratingRepsCompleted: Int,
         val maxReps: Int?,
         val upwardRepetitionsCompleted: Int,
         val downwardRepetitionsCompleted: Int,
