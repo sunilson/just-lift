@@ -19,12 +19,11 @@ android {
 
     signingConfigs {
         create("release") {
-            val ksPath = project.secret("JUST_LIFT_KEYSTORE_PATH")
             val ksPass = project.secret("JUST_LIFT_KEYSTORE_PASSWORD")
             val alias = project.secret("JUST_LIFT_KEY_ALIAS")
             val keyPass = project.secret("JUST_LIFT_KEY_PASSWORD")
-            if (ksPath != null && ksPass != null && alias != null && keyPass != null) {
-                storeFile = file(ksPath)
+            if (ksPass != null && alias != null && keyPass != null) {
+                storeFile = file("$rootDir/justlift.jks")
                 storePassword = ksPass
                 keyAlias = alias
                 keyPassword = keyPass
@@ -44,7 +43,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -53,11 +52,11 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
     buildFeatures {
         buildConfig = true

@@ -258,10 +258,11 @@ class VitruvianDeviceManagerImpl(
                     session.halfRepNotifications += 1
                     val isUpwardCompletion = (session.halfRepNotifications % 2 == 1)
 
-                    // During calibration, perform 3 full reps without counting toward totals
+                    // During calibration, perform 3 reps counted at the TOP (upward completion)
+                    // These calibration reps do not contribute to normal rep totals
                     if (session.calibrationRepsCompleted < CALIBRATION_REPS) {
-                        if (!isUpwardCompletion) {
-                            // Count only full reps when bottom is reached
+                        if (isUpwardCompletion) {
+                            // Count calibration rep when TOP is reached
                             session.calibrationRepsCompleted += 1
                             session.state.value = curr.copy(calibratingRepsCompleted = session.calibrationRepsCompleted)
                         }
