@@ -28,6 +28,8 @@ I might look into it.
     - [ ] Static Analysis
     - [ ] Build APK and publish to Releases
 - [ ] Logging
-    - [ ] Add logging library
+    - [ ] Persist logs for debugging
     - [ ] Log bluetooth communication for easier debugging
 - [ ] Convert to Multiplatform project
+- [ ] Store workout configuration and load on app start
+- [ ] Persist and display Statistics

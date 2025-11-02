@@ -6,10 +6,30 @@ plugins {
     kotlin("plugin.serialization") version "2.2.0"
 }
 
+fun Project.secret(name: String): String? =
+    providers.environmentVariable(name)
+        .orElse(providers.gradleProperty(name))
+        .orNull
+
 android {
     namespace = "at.sunilson.justlift"
     compileSdk {
         version = release(36)
+    }
+
+    signingConfigs {
+        create("release") {
+            val ksPath = project.secret("JUST_LIFT_KEYSTORE_PATH")
+            val ksPass = project.secret("JUST_LIFT_KEYSTORE_PASSWORD")
+            val alias = project.secret("JUST_LIFT_KEY_ALIAS")
+            val keyPass = project.secret("JUST_LIFT_KEY_PASSWORD")
+            if (ksPath != null && ksPass != null && alias != null && keyPass != null) {
+                storeFile = file(ksPath)
+                storePassword = ksPass
+                keyAlias = alias
+                keyPassword = keyPass
+            }
+        }
     }
 
     defaultConfig {
@@ -25,6 +45,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -39,6 +60,7 @@ android {
         jvmTarget = "11"
     }
     buildFeatures {
+        buildConfig = true
         compose = true
     }
 }
@@ -65,7 +87,8 @@ dependencies {
     implementation(libs.koin.android.compose.navigation)
     implementation(platform(libs.koin.annotations.bom))
     implementation(libs.koin.annotations)
-    implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.4.0")
+    implementation(libs.kotlinx.collections.immutable)
+    implementation(libs.timber)
     ksp(libs.koin.ksp.compiler)
 
     testImplementation(libs.junit)

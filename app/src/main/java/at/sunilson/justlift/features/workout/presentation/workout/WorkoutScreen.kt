@@ -1,10 +1,12 @@
 package at.sunilson.justlift.features.workout.presentation.workout
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -13,11 +15,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import at.sunilson.justlift.features.workout.presentation.WorkoutViewModel
 import com.juul.kable.ExperimentalApi
+import com.juul.kable.State
 
 @OptIn(ExperimentalApi::class)
 @Composable
 fun WorkoutScreen(
     state: WorkoutViewModel.State,
+    onUseNoRepLimitChange: (Boolean) -> Unit = {},
     onEccentricSliderValueChange: (Float) -> Unit = {},
     onRepetitionsSliderValueChange: (Float) -> Unit = {},
     onStartWorkoutClicked: () -> Unit = {},
@@ -40,15 +44,36 @@ fun WorkoutScreen(
         Text("Auto start in seconds: ${state.autoStartInSeconds ?: "N/A"}")
 
         Spacer(modifier = Modifier.height(16.dp))
-        Text("Eccentric Percentage: ${(state.eccentricSliderValue * 100).toInt()}%")
-        Slider(value = state.eccentricSliderValue, onValueChange = onEccentricSliderValueChange, valueRange = 0f..1.3f, steps = 13)
+        Text("Auto stop in seconds: ${state.workoutState?.autoStopInSeconds ?: "N/A"}")
 
         Spacer(modifier = Modifier.height(16.dp))
-        Text("Repetitions: ${state.repetitionsSliderValue}")
-        Slider(value = state.repetitionsSliderValue.toFloat(), onValueChange = onRepetitionsSliderValueChange, valueRange = 1f..20f, steps = 19)
+        Text("Eccentric Percentage: ${(state.eccentricSliderValue * 100).toInt()}%")
+        Slider(
+            value = state.eccentricSliderValue,
+            onValueChange = onEccentricSliderValueChange,
+            valueRange = 0f..1.3f,
+            steps = 14,
+            enabled = state.workoutState == null
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("No rep limit")
+        Checkbox(checked = state.useNoRepLimit, onCheckedChange = { onUseNoRepLimitChange(it) }, enabled = state.workoutState == null)
+
+        AnimatedVisibility(!state.useNoRepLimit) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Repetitions: ${state.repetitionsSliderValue}")
+            Slider(
+                value = state.repetitionsSliderValue.toFloat(),
+                onValueChange = onRepetitionsSliderValueChange,
+                valueRange = 1f..20f,
+                steps = 19,
+                enabled = state.workoutState == null
+            )
+        }
 
         Spacer(modifier = Modifier.height(32.dp))
-        if (state.connectedPeripheral != null) {
+        if (state.connectedPeripheralState != State.Disconnected()) {
             Button(onClick = { onDisconnectClicked() }) {
                 Text("Disconnect Device")
             }

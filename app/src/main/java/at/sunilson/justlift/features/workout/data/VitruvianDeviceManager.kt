@@ -24,6 +24,12 @@ interface VitruvianDeviceManager {
     fun getMachineStateFlow(device: Peripheral): Flow<MachineState?>
 
     /**
+     * Optionally pre-initialize the device (send INIT and PRESET) to reduce the latency of a later start.
+     * Implementations should internally throttle this call.
+     */
+    suspend fun prepareForWorkout(device: Peripheral)
+
+    /**
      * Starts a just lift workout in echo mode with the given difficulty
      *
      * @param maxReps Optional maxReps to set for the workout, after which the workout will automatically stop

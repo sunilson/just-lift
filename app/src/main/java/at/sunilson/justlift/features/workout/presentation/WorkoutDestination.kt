@@ -62,6 +62,7 @@ fun WorkoutDestination(
         ) {
             WorkoutScreen(
                 state = state,
+                onUseNoRepLimitChange = viewModel::onUseNoRepLimitChange,
                 onEccentricSliderValueChange = viewModel::onEccentricSliderValueChange,
                 onRepetitionsSliderValueChange = viewModel::onRepetitionsSliderValueChange,
                 onStartWorkoutClicked = viewModel::onStartWorkoutClicked,

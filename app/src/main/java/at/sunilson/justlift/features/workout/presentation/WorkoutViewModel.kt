@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager
+import at.sunilson.justlift.shared.audio.AppSoundPlayer
 import com.juul.kable.Peripheral
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -26,7 +27,8 @@ import kotlin.math.ceil
 @KoinViewModel
 @OptIn(ExperimentalCoroutinesApi::class)
 class WorkoutViewModel(
-    private val vitruvianDeviceManager: VitruvianDeviceManager
+    private val vitruvianDeviceManager: VitruvianDeviceManager,
+    private val soundPlayer: AppSoundPlayer
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(State())
@@ -40,8 +42,10 @@ class WorkoutViewModel(
     private var baselineRight: Double? = null
     private var lastAutoStartAt: Long = 0L
     private var autoStartTickerJob: kotlinx.coroutines.Job? = null
+    private var countdownSoundStarted: Boolean = false
 
     init {
+        observeConnectedPeripheral()
         observeConnectedPeripheralState()
         observeAvailablePeripherals()
         observeWorkoutState()
@@ -65,19 +69,7 @@ class WorkoutViewModel(
 
     fun onStartWorkoutClicked() {
         viewModelScope.launch {
-            try {
-                _state.update { it.copy(loading = true) }
-                vitruvianDeviceManager.startWorkout(
-                    device = _connectedPeripheral.value ?: return@launch,
-                    difficulty = VitruvianDeviceManager.EchoDifficulty.HARD,
-                    eccentricPercentage = state.value.eccentricSliderValue.toDouble(),
-                    maxReps = null
-                )
-            } catch (e: Exception) {
-                Log.e("WorkoutViewModel", "Error starting workout", e)
-            } finally {
-                _state.update { it.copy(loading = false) }
-            }
+            startWorkout()
         }
     }
 
@@ -116,6 +108,16 @@ class WorkoutViewModel(
         _state.update { it.copy(repetitionsSliderValue = value.toInt()) }
     }
 
+    fun onUseNoRepLimitChange(useNoRepLimit: Boolean) {
+        _state.update { it.copy(useNoRepLimit = useNoRepLimit) }
+    }
+
+    private fun observeConnectedPeripheral() {
+        viewModelScope.launch {
+            this@WorkoutViewModel._connectedPeripheral
+                .collect { peripheral -> _state.update { state -> state.copy(connectedPeripheral = peripheral) } }
+        }
+    }
 
     private fun observeConnectedPeripheralState() {
         viewModelScope.launch {
@@ -141,15 +143,27 @@ class WorkoutViewModel(
         }
     }
 
+    private var lastWorkoutState: VitruvianDeviceManager.WorkoutState? = null
     private fun observeWorkoutState() {
         viewModelScope.launch {
             this@WorkoutViewModel._connectedPeripheral
-                .flatMapLatest {
-                    if (it != null) vitruvianDeviceManager.getWorkoutStateFlow(it) else flowOf(
-                        null
-                    )
+                .flatMapLatest { if (it != null) vitruvianDeviceManager.getWorkoutStateFlow(it) else flowOf(null) }
+                .collect { workoutState ->
+                    val prev = lastWorkoutState
+                    when {
+                        prev == null && workoutState != null -> soundPlayer.playStart()
+                        prev != null && workoutState == null -> soundPlayer.playDone()
+                        prev != null && workoutState != null -> {
+                            val repsIncreased = workoutState.upwardRepetitionsCompleted > prev.upwardRepetitionsCompleted
+                            val calibratingIncreased = workoutState.calibratingRepsCompleted > prev.calibratingRepsCompleted
+                            if (repsIncreased || (calibratingIncreased && workoutState.calibratingRepsCompleted > 0)) {
+                                soundPlayer.playRepRegular()
+                            }
+                        }
+                    }
+                    lastWorkoutState = workoutState
+                    _state.update { state -> state.copy(workoutState = workoutState) }
                 }
-                .collect { workoutState -> _state.update { state -> state.copy(workoutState = workoutState) } }
         }
     }
 
@@ -161,16 +175,7 @@ class WorkoutViewModel(
                     // Always expose machine state
                     _state.update { s -> s.copy(machineState = machineState) }
 
-                    val device = _connectedPeripheral.value ?: return@collect
-                    val workoutActive = state.value.workoutState != null
-
-                    if (machineState == null) {
-                        resetAutoStart()
-                        return@collect
-                    }
-
-                    // If workout already active, no auto start; clear countdown
-                    if (workoutActive) {
+                    if (machineState == null || state.value.workoutState != null) {
                         resetAutoStart()
                         return@collect
                     }
@@ -179,10 +184,8 @@ class WorkoutViewModel(
                     val positionRight = machineState.positionCableRight
                     val liftedLeft = positionLeft >= LIFTED_POS_THRESHOLD
                     val liftedRight = positionRight >= LIFTED_POS_THRESHOLD
-                    val anyLifted = liftedLeft || liftedRight
 
-                    if (!anyLifted) {
-                        // Reset when both at bottom
+                    if (!liftedLeft && !liftedRight) {
                         resetAutoStart()
                         return@collect
                     }
@@ -194,62 +197,140 @@ class WorkoutViewModel(
                         startHoldSinceMillis = now
                         baselineLeft = positionLeft
                         baselineRight = positionRight
+
+                        // Pre-initialize device to reduce start latency (INIT + PRESET)
+                        _connectedPeripheral.value?.let { device ->
+                            viewModelScope.launch {
+                                try {
+                                    vitruvianDeviceManager.prepareForWorkout(device)
+                                } catch (_: Throwable) {
+                                }
+                            }
+                        }
+
                         // Start a lightweight ticker to ensure UI countdown updates smoothly
                         autoStartTickerJob?.cancel()
                         autoStartTickerJob = viewModelScope.launch {
+                            countdownSoundStarted = false
                             while (startHoldSinceMillis != null && state.value.workoutState == null) {
                                 val start = startHoldSinceMillis ?: break
-                                val remMs = AUTO_START_HOLD_MS - (System.currentTimeMillis() - start)
-                                val secondsLeftTicker = if (remMs > 0) kotlin.math.ceil(remMs / 1000.0).toInt() else 0
+                                val elapsedMs = System.currentTimeMillis() - start
+                                val remMs = AUTO_START_TOTAL_HOLD_MS - elapsedMs
+
+                                if (!countdownSoundStarted && elapsedMs >= AUTO_START_PRECOUNT_MS) {
+                                    soundPlayer.playAutoStartCountDown()
+                                    countdownSoundStarted = true
+                                }
+
+                                val secondsLeftTicker: Int? = if (elapsedMs >= AUTO_START_PRECOUNT_MS) {
+                                    if (remMs > 0) ceil(remMs / 1000.0).toInt() else 0
+                                } else null
                                 _state.update { it.copy(autoStartInSeconds = secondsLeftTicker) }
-                                delay(250)
+
+                                if (remMs <= 0) {
+                                    // Safety: trigger auto-start directly from ticker to avoid waiting for next monitor tick
+                                    val nowCall = System.currentTimeMillis()
+                                    if (nowCall - lastAutoStartAt > AUTO_START_DEBOUNCE_MS && state.value.workoutState == null) {
+                                        lastAutoStartAt = nowCall
+                                        startWorkout()
+                                        resetAutoStart()
+                                    }
+                                    break
+                                }
+
+                                delay(100)
                             }
-                        }
+                        }.also { it.invokeOnCompletion { soundPlayer.stopAutoStartCountDown() } }
                     }
 
-                    // Check if held near baseline (within epsilon)
                     val withinLeft = baselineLeft?.let { abs(positionLeft - it) <= HOLD_EPSILON } ?: true
                     val withinRight = baselineRight?.let { abs(positionRight - it) <= HOLD_EPSILON } ?: true
-
-                    // We consider hold valid if each lifted cable stays within epsilon; non-lifted cable ignored
                     val holdValid = ((!liftedLeft || withinLeft) && (!liftedRight || withinRight))
 
                     if (!holdValid) {
-                        // Movement detected -> restart timer/baseline
+                        // Movement detected -> restart timer/baseline and cancel countdown sound
                         startHoldSinceMillis = now
                         baselineLeft = positionLeft
                         baselineRight = positionRight
-                        _state.update { it.copy(autoStartInSeconds = AUTO_START_SECONDS) }
+                        countdownSoundStarted = false
+                        _state.update { it.copy(autoStartInSeconds = null) }
+
+                        // Restart ticker; countdown sound will start after pre-count window
+                        autoStartTickerJob?.cancel()
+
+                        // Pre-initialize again to keep it fresh if throttling allows
+                        _connectedPeripheral.value?.let { device ->
+                            viewModelScope.launch {
+                                try {
+                                    vitruvianDeviceManager.prepareForWorkout(device)
+                                } catch (_: Throwable) {
+                                }
+                            }
+                        }
+
+                        autoStartTickerJob = viewModelScope.launch {
+                            countdownSoundStarted = false
+                            while (startHoldSinceMillis != null && state.value.workoutState == null) {
+                                val start = startHoldSinceMillis ?: break
+                                val elapsedMs = System.currentTimeMillis() - start
+                                val remainingMs = AUTO_START_TOTAL_HOLD_MS - elapsedMs
+
+                                if (!countdownSoundStarted && elapsedMs >= AUTO_START_PRECOUNT_MS) {
+                                    soundPlayer.playAutoStartCountDown()
+                                    countdownSoundStarted = true
+                                }
+
+                                val secondsLeftTicker: Int? = if (elapsedMs >= AUTO_START_PRECOUNT_MS) {
+                                    if (remainingMs > 0) ceil(remainingMs / 1000.0).toInt() else 0
+                                } else null
+                                _state.update { it.copy(autoStartInSeconds = secondsLeftTicker) }
+
+                                if (remainingMs <= 0) {
+                                    val nowCall = System.currentTimeMillis()
+                                    if (nowCall - lastAutoStartAt > AUTO_START_DEBOUNCE_MS && state.value.workoutState == null) {
+                                        lastAutoStartAt = nowCall
+                                        startWorkout()
+                                        resetAutoStart()
+                                    }
+                                    break
+                                }
+                                delay(100)
+                            }
+                        }
                         return@collect
                     }
 
                     val elapsed = now - (startHoldSinceMillis ?: now)
-                    val remainingMs = AUTO_START_HOLD_MS - elapsed
-                    val secondsLeft = if (remainingMs > 0) ceil(remainingMs / 1000.0).toInt() else 0
+                    val remainingMs = AUTO_START_TOTAL_HOLD_MS - elapsed
+                    val secondsLeft: Int? = if (elapsed >= AUTO_START_PRECOUNT_MS) {
+                        if (remainingMs > 0) ceil(remainingMs / 1000.0).toInt() else 0
+                    } else null
                     _state.update { it.copy(autoStartInSeconds = secondsLeft) }
 
-                    if (elapsed >= AUTO_START_HOLD_MS) {
-                        // Debounce successive triggers
-                        if (now - lastAutoStartAt > AUTO_START_DEBOUNCE_MS) {
-                            lastAutoStartAt = now
-                            viewModelScope.launch {
-                                try {
-                                    vitruvianDeviceManager.startWorkout(
-                                        device = device,
-                                        difficulty = VitruvianDeviceManager.EchoDifficulty.HARD,
-                                        eccentricPercentage = state.value.eccentricSliderValue.toDouble(),
-                                        maxReps = null,
-                                        stopAtLastTopRep = false
-                                    )
-                                } catch (e: Exception) {
-                                    Log.e("WorkoutViewModel", "Auto start failed", e)
-                                } finally {
-                                    resetAutoStart()
-                                }
-                            }
+                    if (elapsed >= AUTO_START_TOTAL_HOLD_MS && now - lastAutoStartAt > AUTO_START_DEBOUNCE_MS) {
+                        lastAutoStartAt = now
+                        viewModelScope.launch {
+                            startWorkout()
+                            resetAutoStart()
                         }
                     }
                 }
+        }
+    }
+
+    private suspend fun startWorkout() {
+        try {
+            _state.update { it.copy(loading = true) }
+            vitruvianDeviceManager.startWorkout(
+                device = _connectedPeripheral.value ?: return,
+                difficulty = VitruvianDeviceManager.EchoDifficulty.HARD,
+                eccentricPercentage = state.value.eccentricSliderValue.toDouble(),
+                maxReps = null
+            )
+        } catch (e: Exception) {
+            Log.e("WorkoutViewModel", "Error starting workout", e)
+        } finally {
+            _state.update { it.copy(loading = false) }
         }
     }
 
@@ -257,8 +338,10 @@ class WorkoutViewModel(
         startHoldSinceMillis = null
         baselineLeft = null
         baselineRight = null
+        countdownSoundStarted = false
         autoStartTickerJob?.cancel()
         autoStartTickerJob = null
+        soundPlayer.stopAutoStartCountDown()
         _state.update { it.copy(autoStartInSeconds = null) }
     }
 
@@ -269,14 +352,22 @@ class WorkoutViewModel(
         val availablePeripherals: ImmutableList<Peripheral> = persistentListOf(),
         val workoutState: VitruvianDeviceManager.WorkoutState? = null,
         val machineState: VitruvianDeviceManager.MachineState? = null,
+        val useNoRepLimit: Boolean = true,
         val eccentricSliderValue: Float = 1.0f,
         val repetitionsSliderValue: Int = 8,
         val autoStartInSeconds: Int? = null
     )
 
     companion object {
-        private const val AUTO_START_SECONDS: Int = 3
-        private const val AUTO_START_HOLD_MS: Long = AUTO_START_SECONDS * 1000L
+        // Total hold time before auto-start
+        private const val AUTO_START_TOTAL_HOLD_MS: Long = 5_000L
+
+        // Length of audible/visible countdown (seconds)
+        private const val AUTO_START_COUNTDOWN_SECONDS: Int = 3
+
+        // Silent pre-count before countdown starts
+        private const val AUTO_START_PRECOUNT_MS: Long = AUTO_START_TOTAL_HOLD_MS - AUTO_START_COUNTDOWN_SECONDS * 1000L // 2_000L
+
         private const val LIFTED_POS_THRESHOLD: Double = 0.05 // 5%
 
         // Allow small fluctuations while holding

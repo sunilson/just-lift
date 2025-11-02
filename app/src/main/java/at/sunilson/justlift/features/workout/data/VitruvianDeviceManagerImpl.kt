@@ -157,7 +157,9 @@ class VitruvianDeviceManagerImpl(
         // Debug logging throttle
         var lastLogAtMillis: Long = 0L,
         // Behavior flags
-        var stopAtLastTopRep: Boolean = false
+        var stopAtLastTopRep: Boolean = false,
+        // Preparation
+        var lastPreparedAtMillis: Long = 0L
     )
 
     private val sessions = mutableMapOf<String, WorkoutSession>()
@@ -193,10 +195,15 @@ class VitruvianDeviceManagerImpl(
         maxReps: Int?,
         stopAtLastTopRep: Boolean
     ) {
-        // Send INIT sequence first (per reverse engineered protocol)
-        writeWithResponse(device, RX_CHARACTERISTIC, buildInitCommand())
-        delay(50)
-        writeWithResponse(device, RX_CHARACTERISTIC, buildInitPreset())
+        val session = sessionFor(device)
+        val now = System.currentTimeMillis()
+        // If not recently prepared, send INIT + PRESET to ensure fast start
+        if (now - session.lastPreparedAtMillis > PREPARE_VALID_MS) {
+            writeWithResponse(device, RX_CHARACTERISTIC, buildInitCommand())
+            delay(50)
+            writeWithResponse(device, RX_CHARACTERISTIC, buildInitPreset())
+            session.lastPreparedAtMillis = now
+        }
 
         // Compute eccentric percentage from ratio 0.0–1.3; coerce out-of-range inputs.
         val eccentricRatio = eccentricPercentage.coerceIn(0.0, 1.3)
@@ -212,7 +219,6 @@ class VitruvianDeviceManagerImpl(
         writeWithResponse(device, RX_CHARACTERISTIC, frame)
 
         // Start local session tracking of workout state
-        val session = sessionFor(device)
         // Cancel any existing jobs for safety
         session.timeJob?.cancel()
         session.repJob?.cancel()
@@ -297,6 +303,21 @@ class VitruvianDeviceManagerImpl(
                 }
             } catch (_: Throwable) {
                 // Observation ends
+            }
+        }
+    }
+
+    override suspend fun prepareForWorkout(device: Peripheral) {
+        val session = sessionFor(device)
+        val now = System.currentTimeMillis()
+        if (now - session.lastPreparedAtMillis > PREPARE_THROTTLE_MS) {
+            try {
+                writeWithResponse(device, RX_CHARACTERISTIC, buildInitCommand())
+                delay(50)
+                writeWithResponse(device, RX_CHARACTERISTIC, buildInitPreset())
+                session.lastPreparedAtMillis = now
+            } catch (_: Throwable) {
+                // Ignore pre-init errors; we'll try again on start
             }
         }
     }
@@ -438,5 +459,12 @@ class VitruvianDeviceManagerImpl(
         private const val BOTTOM_POS_THRESHOLD: Double = 0.05 // 2% of travel considered bottom
         private const val MONITOR_INTERVAL_MS: Long = 100
         private const val CALIBRATION_REPS: Int = 3
+
+        // Pre-initialization timing
+        // After prepareForWorkout(), consider the device prepared for this window
+        private const val PREPARE_VALID_MS: Long = 10_000L
+
+        // Throttle multiple prepare calls to at most once per second
+        private const val PREPARE_THROTTLE_MS: Long = 1_000L
     }
 }
