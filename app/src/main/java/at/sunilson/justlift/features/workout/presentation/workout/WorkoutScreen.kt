@@ -1,4 +1,4 @@
-package at.sunilson.justlift.ui.workout
+package at.sunilson.justlift.features.workout.presentation.workout
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import at.sunilson.justlift.features.workout.presentation.WorkoutViewModel
 import com.juul.kable.ExperimentalApi
 
 @OptIn(ExperimentalApi::class)
@@ -37,7 +38,7 @@ fun WorkoutScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
         Text("Auto start in seconds: ${state.autoStartInSeconds ?: "N/A"}")
-        
+
         Spacer(modifier = Modifier.height(16.dp))
         Text("Eccentric Percentage: ${(state.eccentricSliderValue * 100).toInt()}%")
         Slider(value = state.eccentricSliderValue, onValueChange = onEccentricSliderValueChange, valueRange = 0f..1.3f, steps = 13)

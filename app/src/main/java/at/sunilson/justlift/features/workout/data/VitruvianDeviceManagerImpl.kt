@@ -1,6 +1,7 @@
-package at.sunilson.justlift.bluetooth
+package at.sunilson.justlift.features.workout.data
 
 import android.content.Context
+import android.util.Log
 import com.juul.kable.Advertisement
 import com.juul.kable.Characteristic
 import com.juul.kable.Peripheral
@@ -21,6 +22,7 @@ import kotlinx.coroutines.launch
 import org.koin.core.annotation.Single
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.math.ceil
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.math.roundToInt
@@ -70,7 +72,7 @@ class VitruvianDeviceManagerImpl(
                     // Throttled debug logging for diagnosing position scaling
                     val nowTs = System.currentTimeMillis()
                     if (nowTs - session.lastLogAtMillis > POSITION_LOG_THROTTLE_MS) {
-                        android.util.Log.d(
+                        Log.d(
                             "VitruvianDevice",
                             "pos raw A=$rawPosA B=$rawPosB | norm R=${String.format("%.3f", posRight)} L=${String.format("%.3f", posLeft)}"
                         )
@@ -97,7 +99,7 @@ class VitruvianDeviceManagerImpl(
                             }
                             val elapsed = now - (session.bottomHoldSince ?: now)
                             val remainingMs = AUTO_STOP_HOLD_MS - elapsed
-                            val secondsLeft = if (remainingMs > 0) kotlin.math.ceil(remainingMs / 1000.0).toInt() else 0
+                            val secondsLeft = if (remainingMs > 0) ceil(remainingMs / 1000.0).toInt() else 0
 
                             // Update countdown in workout state
                             session.state.value = session.state.value?.copy(autoStopInSeconds = secondsLeft)

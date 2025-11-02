@@ -1,6 +1,8 @@
-package at.sunilson.justlift.ui.workout
+package at.sunilson.justlift.features.workout.presentation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -18,6 +20,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import at.sunilson.justlift.features.workout.presentation.connection.ConnectionScreen
+import at.sunilson.justlift.features.workout.presentation.workout.WorkoutScreen
+import at.sunilson.justlift.features.workout.presentation.WorkoutViewModel
 import com.juul.kable.State
 import org.koin.androidx.compose.koinViewModel
 
@@ -65,6 +70,8 @@ fun WorkoutDestination(
             )
         }
         AnimatedVisibility(
+            enter = fadeIn(),
+            exit = fadeOut(),
             visible = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded
         ) {
             Box(

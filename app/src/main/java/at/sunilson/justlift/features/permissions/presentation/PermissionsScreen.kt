@@ -1,4 +1,4 @@
-package at.sunilson.justlift.ui.permissions
+package at.sunilson.justlift.features.permissions.presentation
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Button

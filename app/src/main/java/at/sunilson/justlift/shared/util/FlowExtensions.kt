@@ -1,4 +1,4 @@
-package at.sunilson.justlift.util
+package at.sunilson.justlift.shared.util
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi

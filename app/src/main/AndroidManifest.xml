@@ -17,7 +17,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.JustLift">
         <activity
-            android:name=".ui.MainActivity"
+            android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.JustLift">

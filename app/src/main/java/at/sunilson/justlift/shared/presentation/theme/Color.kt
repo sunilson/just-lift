@@ -1,4 +1,4 @@
-package at.sunilson.justlift.ui.theme
+package at.sunilson.justlift.shared.presentation.theme
 
 import androidx.compose.ui.graphics.Color
 

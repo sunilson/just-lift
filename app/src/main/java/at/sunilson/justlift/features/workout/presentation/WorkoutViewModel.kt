@@ -1,11 +1,10 @@
-package at.sunilson.justlift.ui.workout
+package at.sunilson.justlift.features.workout.presentation
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import at.sunilson.justlift.bluetooth.VitruvianDeviceManager
+import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager
 import com.juul.kable.Peripheral
-import com.juul.kable.State
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -19,6 +18,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.android.annotation.KoinViewModel
+import kotlin.math.abs
+import kotlin.math.ceil
 
 // TODO Store workout parameters and load them on start to persist data across app restarts
 @KoinViewModel
@@ -127,7 +128,7 @@ class WorkoutViewModel(
             this@WorkoutViewModel._connectedPeripheral
                 .flatMapLatest { it?.state ?: flowOf(com.juul.kable.State.Disconnected()) }
                 .flatMapLatest { state ->
-                    if (state is State.Disconnected) {
+                    if (state is com.juul.kable.State.Disconnected) {
                         vitruvianDeviceManager.getScannedDevicesFlow()
                             .map { it.toImmutableList() }
                     } else {
@@ -141,7 +142,10 @@ class WorkoutViewModel(
     private fun observeWorkoutState() {
         viewModelScope.launch {
             this@WorkoutViewModel._connectedPeripheral
-                .flatMapLatest { if (it != null) vitruvianDeviceManager.getWorkoutStateFlow(it) else flowOf(null) }
+                .flatMapLatest { if (it != null) vitruvianDeviceManager.getWorkoutStateFlow(it) else flowOf(
+                    null
+                )
+                }
                 .collect { workoutState -> _state.update { state -> state.copy(workoutState = workoutState) } }
         }
     }
@@ -149,7 +153,10 @@ class WorkoutViewModel(
     private fun observeMachineState() {
         viewModelScope.launch {
             this@WorkoutViewModel._connectedPeripheral
-                .flatMapLatest { if (it != null) vitruvianDeviceManager.getMachineStateFlow(it) else flowOf(null) }
+                .flatMapLatest { if (it != null) vitruvianDeviceManager.getMachineStateFlow(it) else flowOf(
+                    null
+                )
+                }
                 .collect { machineState ->
                     // Always expose machine state
                     _state.update { s -> s.copy(machineState = machineState) }
@@ -199,8 +206,8 @@ class WorkoutViewModel(
                     }
 
                     // Check if held near baseline (within epsilon)
-                    val withinLeft = baselineLeft?.let { kotlin.math.abs(left - it) <= HOLD_EPSILON } ?: true
-                    val withinRight = baselineRight?.let { kotlin.math.abs(right - it) <= HOLD_EPSILON } ?: true
+                    val withinLeft = baselineLeft?.let { abs(left - it) <= HOLD_EPSILON } ?: true
+                    val withinRight = baselineRight?.let { abs(right - it) <= HOLD_EPSILON } ?: true
 
                     // We consider hold valid if each lifted cable stays within epsilon; non-lifted cable ignored
                     val holdValid = ((!liftedLeft || withinLeft) && (!liftedRight || withinRight))
@@ -216,7 +223,7 @@ class WorkoutViewModel(
 
                     val elapsed = now - (startHoldSinceMillis ?: now)
                     val remainingMs = AUTO_START_HOLD_MS - elapsed
-                    val secondsLeft = if (remainingMs > 0) kotlin.math.ceil(remainingMs / 1000.0).toInt() else 0
+                    val secondsLeft = if (remainingMs > 0) ceil(remainingMs / 1000.0).toInt() else 0
                     _state.update { it.copy(autoStartInSeconds = secondsLeft) }
 
                     if (elapsed >= AUTO_START_HOLD_MS) {

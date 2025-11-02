@@ -1,4 +1,4 @@
-package at.sunilson.justlift.bluetooth
+package at.sunilson.justlift.features.workout.data
 
 import androidx.annotation.FloatRange
 import com.juul.kable.Peripheral

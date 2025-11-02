@@ -1,4 +1,4 @@
-package at.sunilson.justlift.ui.navigation
+package at.sunilson.justlift.navigation
 
 import kotlinx.serialization.Serializable
 

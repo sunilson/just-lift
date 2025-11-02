@@ -1,11 +1,11 @@
-package at.sunilson.justlift.ui.permissions
+package at.sunilson.justlift.features.permissions.presentation
 
 import android.Manifest
 import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
-import at.sunilson.justlift.ui.navigation.Workout
+import at.sunilson.justlift.navigation.Workout
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 

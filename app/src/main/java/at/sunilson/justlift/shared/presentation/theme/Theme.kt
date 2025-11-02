@@ -1,4 +1,4 @@
-package at.sunilson.justlift.ui.theme
+package at.sunilson.justlift.shared.presentation.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme

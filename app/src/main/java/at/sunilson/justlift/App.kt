@@ -1,10 +1,6 @@
-package at.sunilson.justlift.ui
+package at.sunilson.justlift
 
 import android.Manifest
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -14,25 +10,12 @@ import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import at.sunilson.justlift.ui.navigation.Permissions
-import at.sunilson.justlift.ui.navigation.Workout
-import at.sunilson.justlift.ui.permissions.PermissionsDestination
-import at.sunilson.justlift.ui.theme.JustLiftTheme
-import at.sunilson.justlift.ui.workout.WorkoutDestination
+import at.sunilson.justlift.navigation.Permissions
+import at.sunilson.justlift.navigation.Workout
+import at.sunilson.justlift.features.permissions.presentation.PermissionsDestination
+import at.sunilson.justlift.features.workout.presentation.WorkoutDestination
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
-
-class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            JustLiftTheme {
-                JustLiftApp()
-            }
-        }
-    }
-}
 
 @OptIn(ExperimentalPermissionsApi::class)
 @PreviewScreenSizes

@@ -1,4 +1,4 @@
-package at.sunilson.justlift.ui.workout
+package at.sunilson.justlift.features.workout.presentation.connection
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
