@@ -30,8 +30,14 @@ fun WorkoutScreen(
         Text("Connected device: ${state.connectedPeripheral?.name ?: "None"}")
 
         Spacer(modifier = Modifier.height(16.dp))
-        Text("Workout state: $state.workoutState")
+        Text("Workout state: ${state.workoutState}")
 
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("Machine state: ${state.machineState}")
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("Auto start in seconds: ${state.autoStartInSeconds ?: "N/A"}")
+        
         Spacer(modifier = Modifier.height(16.dp))
         Text("Eccentric Percentage: ${(state.eccentricSliderValue * 100).toInt()}%")
         Slider(value = state.eccentricSliderValue, onValueChange = onEccentricSliderValueChange, valueRange = 0f..1.3f, steps = 13)

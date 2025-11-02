@@ -32,6 +32,12 @@ class WorkoutViewModel(
 
     private val _connectedPeripheral = MutableStateFlow<Peripheral?>(null)
 
+    // Auto start detection tracking
+    private var startHoldSinceMillis: Long? = null
+    private var baselineLeft: Double? = null
+    private var baselineRight: Double? = null
+    private var lastAutoStartAt: Long = 0L
+
     init {
         observeConnectedPeripheralState()
         observeAvailablePeripherals()
@@ -144,8 +150,106 @@ class WorkoutViewModel(
         viewModelScope.launch {
             this@WorkoutViewModel._connectedPeripheral
                 .flatMapLatest { if (it != null) vitruvianDeviceManager.getMachineStateFlow(it) else flowOf(null) }
-                .collect { machineState -> _state.update { state -> state.copy(machineState = machineState) } }
+                .collect { machineState ->
+                    // Always expose machine state
+                    _state.update { s -> s.copy(machineState = machineState) }
+
+                    val device = _connectedPeripheral.value ?: return@collect
+                    val workoutActive = state.value.workoutState != null
+
+                    if (machineState == null) {
+                        resetAutoStart()
+                        // Also clear countdown when no machine state
+                        _state.update { it.copy(autoStartInSeconds = null) }
+                        return@collect
+                    }
+
+                    // If workout already active, no auto start; clear countdown
+                    if (workoutActive) {
+                        resetAutoStart()
+                        if (state.value.autoStartInSeconds != null) {
+                            _state.update { it.copy(autoStartInSeconds = null) }
+                        }
+                        return@collect
+                    }
+
+                    val left = machineState.positionCableLeft
+                    val right = machineState.positionCableRight
+
+                    val liftedLeft = left >= LIFTED_POS_THRESHOLD
+                    val liftedRight = right >= LIFTED_POS_THRESHOLD
+                    val anyLifted = liftedLeft || liftedRight
+
+                    if (!anyLifted) {
+                        // Reset when both at bottom
+                        resetAutoStart()
+                        if (state.value.autoStartInSeconds != null) {
+                            _state.update { it.copy(autoStartInSeconds = null) }
+                        }
+                        return@collect
+                    }
+
+                    val now = System.currentTimeMillis()
+
+                    // Initialize baselines at first lift
+                    if (startHoldSinceMillis == null) {
+                        startHoldSinceMillis = now
+                        baselineLeft = left
+                        baselineRight = right
+                    }
+
+                    // Check if held near baseline (within epsilon)
+                    val withinLeft = baselineLeft?.let { kotlin.math.abs(left - it) <= HOLD_EPSILON } ?: true
+                    val withinRight = baselineRight?.let { kotlin.math.abs(right - it) <= HOLD_EPSILON } ?: true
+
+                    // We consider hold valid if each lifted cable stays within epsilon; non-lifted cable ignored
+                    val holdValid = ((!liftedLeft || withinLeft) && (!liftedRight || withinRight))
+
+                    if (!holdValid) {
+                        // Movement detected -> restart timer/baseline
+                        startHoldSinceMillis = now
+                        baselineLeft = left
+                        baselineRight = right
+                        _state.update { it.copy(autoStartInSeconds = AUTO_START_SECONDS) }
+                        return@collect
+                    }
+
+                    val elapsed = now - (startHoldSinceMillis ?: now)
+                    val remainingMs = AUTO_START_HOLD_MS - elapsed
+                    val secondsLeft = if (remainingMs > 0) kotlin.math.ceil(remainingMs / 1000.0).toInt() else 0
+                    _state.update { it.copy(autoStartInSeconds = secondsLeft) }
+
+                    if (elapsed >= AUTO_START_HOLD_MS) {
+                        // Debounce successive triggers
+                        if (now - lastAutoStartAt > AUTO_START_DEBOUNCE_MS) {
+                            lastAutoStartAt = now
+                            // Fire workout start with current parameters
+                            viewModelScope.launch {
+                                try {
+                                    vitruvianDeviceManager.startWorkout(
+                                        device = device,
+                                        difficulty = VitruvianDeviceManager.EchoDifficulty.HARD,
+                                        eccentricPercentage = state.value.eccentricSliderValue.toDouble(),
+                                        maxReps = null
+                                    )
+                                } catch (e: Exception) {
+                                    Log.e("WorkoutViewModel", "Auto start failed", e)
+                                } finally {
+                                    // Clear countdown
+                                    _state.update { it.copy(autoStartInSeconds = null) }
+                                    resetAutoStart()
+                                }
+                            }
+                        }
+                    }
+                }
         }
+    }
+
+    private fun resetAutoStart() {
+        startHoldSinceMillis = null
+        baselineLeft = null
+        baselineRight = null
     }
 
     data class State(
@@ -156,6 +260,19 @@ class WorkoutViewModel(
         val workoutState: VitruvianDeviceManager.WorkoutState? = null,
         val machineState: VitruvianDeviceManager.MachineState? = null,
         val eccentricSliderValue: Float = 1.0f,
-        val repetitionsSliderValue: Int = 8
+        val repetitionsSliderValue: Int = 8,
+        val autoStartInSeconds: Int? = null
     )
+
+    companion object {
+        private const val AUTO_START_SECONDS: Int = 3
+        private const val AUTO_START_HOLD_MS: Long = AUTO_START_SECONDS * 1000L
+        private const val LIFTED_POS_THRESHOLD: Double = 0.05 // 5%
+
+        // Allow small fluctuations while holding
+        private const val HOLD_EPSILON: Double = 0.01 // +/-1%
+
+        // Prevent repeated auto-starts in quick succession
+        private const val AUTO_START_DEBOUNCE_MS: Long = 5_000L
+    }
 }

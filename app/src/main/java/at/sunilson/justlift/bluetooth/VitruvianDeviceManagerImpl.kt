@@ -46,11 +46,82 @@ class VitruvianDeviceManagerImpl(
             while (isActive) {
                 try {
                     val data = device.read(MONITOR_CHARACTERISTIC)
+
+                    // Parse loads (kg)
                     val (leftKg, rightKg) = parseMonitorLoads(data)
+
+                    // Parse positions (raw u16), filter spikes, and normalize 0.0..1.0
+                    val bb = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN)
+                    var rawPosA = if (data.size >= 12) (bb.getShort(4).toInt() and 0xFFFF) else 0 // Right
+                    var rawPosB = if (data.size >= 16) (bb.getShort(10).toInt() and 0xFFFF) else 0 // Left
+                    if (rawPosA > POSITION_SPIKE_FILTER_MAX) {
+                        rawPosA = session.lastGoodPosA
+                    } else {
+                        session.lastGoodPosA = rawPosA
+                    }
+                    if (rawPosB > POSITION_SPIKE_FILTER_MAX) {
+                        rawPosB = session.lastGoodPosB
+                    } else {
+                        session.lastGoodPosB = rawPosB
+                    }
+                    val posRight = (rawPosA / POSITION_NORMALIZATION_DIVISOR_MM).coerceIn(0.0, 1.0)
+                    val posLeft = (rawPosB / POSITION_NORMALIZATION_DIVISOR_MM).coerceIn(0.0, 1.0)
+
+                    // Throttled debug logging for diagnosing position scaling
+                    val nowTs = System.currentTimeMillis()
+                    if (nowTs - session.lastLogAtMillis > POSITION_LOG_THROTTLE_MS) {
+                        android.util.Log.d(
+                            "VitruvianDevice",
+                            "pos raw A=$rawPosA B=$rawPosB | norm R=${String.format("%.3f", posRight)} L=${String.format("%.3f", posLeft)}"
+                        )
+                        session.lastLogAtMillis = nowTs
+                    }
+
+                    // Emit machine state
                     session.machineState.value = VitruvianDeviceManager.MachineState(
                         forceLeftCable = leftKg,
-                        forceRightCable = rightKg
+                        forceRightCable = rightKg,
+                        positionCableLeft = posLeft,
+                        positionCableRight = posRight
                     )
+
+                    // Auto-stop logic: if both cables are near bottom for HOLD then stop
+                    val active = session.state.value != null
+                    if (active) {
+                        val atBottomLeft = posLeft <= BOTTOM_POS_THRESHOLD
+                        val atBottomRight = posRight <= BOTTOM_POS_THRESHOLD
+                        if (atBottomLeft && atBottomRight) {
+                            val now = System.currentTimeMillis()
+                            if (session.bottomHoldSince == null) {
+                                session.bottomHoldSince = now
+                            }
+                            val elapsed = now - (session.bottomHoldSince ?: now)
+                            val remainingMs = AUTO_STOP_HOLD_MS - elapsed
+                            val secondsLeft = if (remainingMs > 0) kotlin.math.ceil(remainingMs / 1000.0).toInt() else 0
+
+                            // Update countdown in workout state
+                            session.state.value = session.state.value?.copy(autoStopInSeconds = secondsLeft)
+
+                            if (elapsed >= AUTO_STOP_HOLD_MS) {
+                                // Reset timer before stopping to avoid loops
+                                session.bottomHoldSince = null
+                                // Best-effort stop
+                                try { stopWorkout(device) } catch (_: Throwable) {}
+                            }
+                        } else {
+                            session.bottomHoldSince = null
+                            // Clear countdown if previously set
+                            if (session.state.value?.autoStopInSeconds != null) {
+                                session.state.value = session.state.value?.copy(autoStopInSeconds = null)
+                            }
+                        }
+                    } else {
+                        // No active workout, ensure countdown cleared
+                        if (session.state.value?.autoStopInSeconds != null) {
+                            session.state.value = session.state.value?.copy(autoStopInSeconds = null)
+                        }
+                        session.bottomHoldSince = null
+                    }
                 } catch (_: Throwable) {
                     // Likely disconnected or transient read failure; keep trying at a slower pace
                 }
@@ -72,7 +143,14 @@ class VitruvianDeviceManagerImpl(
         var calibrationRepsToSkip: Int = 3,
         var machineJob: Job? = null,
         var timeJob: Job? = null,
-        var repJob: Job? = null
+        var repJob: Job? = null,
+        // Position parsing helpers
+        var lastGoodPosA: Int = 0,
+        var lastGoodPosB: Int = 0,
+        // Auto-stop detection
+        var bottomHoldSince: Long? = null,
+        // Debug logging throttle
+        var lastLogAtMillis: Long = 0L
     )
 
     private val sessions = mutableMapOf<String, WorkoutSession>()
@@ -325,5 +403,21 @@ class VitruvianDeviceManagerImpl(
         val rightKg = f4 / 100.0
         val leftKg = f7 / 100.0
         return leftKg to rightKg
+    }
+    companion object {
+        // Positions are u16; values > 50000 are considered invalid spikes per JS reference
+        private const val POSITION_SPIKE_FILTER_MAX: Int = 50000
+
+        // Position normalization: map raw position (~millimeters) to 0.0..1.0
+        // The web app initializes max at 1000 and adapts dynamically. Based on that and typical
+        // Vitruvian travel, we use a conservative fixed divisor of 2000 mm.
+        private const val POSITION_NORMALIZATION_DIVISOR_MM: Double = 2000.0
+
+        // Throttle for debug logs (ms)
+        private const val POSITION_LOG_THROTTLE_MS: Long = 1000L
+
+        private const val AUTO_STOP_HOLD_MS: Long = 5_000L
+        private const val BOTTOM_POS_THRESHOLD: Double = 0.02 // 2% of travel considered bottom
+        private const val MONITOR_INTERVAL_MS: Long = 100
     }
 }

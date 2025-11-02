@@ -18,7 +18,7 @@ interface VitruvianDeviceManager {
     fun getWorkoutStateFlow(device: Peripheral): Flow<WorkoutState?>
 
     /**
-     * Provides a flow of the current machine state (cable forces) for the given device.
+     * Provides a flow of the current machine state (cable forces for example) for the given device.
      * This should emit regardless of workout activity, enabling auto-detection of workout start/end.
      */
     fun getMachineStateFlow(device: Peripheral): Flow<MachineState?>
@@ -47,12 +47,16 @@ interface VitruvianDeviceManager {
         val maxReps: Int?,
         val upwardRepetitionsCompleted: Int,
         val downwardRepetitionsCompleted: Int,
-        val timeElapsed: Duration
+        val timeElapsed: Duration,
+        val autoStopInSeconds: Int? = null
     )
 
     data class MachineState(
         val forceLeftCable: Double,
-        val forceRightCable: Double
+        val forceRightCable: Double,
+        // Normalized positions in range 0.0..1.0
+        val positionCableLeft: Double,
+        val positionCableRight: Double
     )
 
     enum class EchoDifficulty {
