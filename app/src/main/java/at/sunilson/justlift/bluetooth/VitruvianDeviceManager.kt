@@ -18,12 +18,18 @@ interface VitruvianDeviceManager {
     fun getWorkoutStateFlow(device: Peripheral): Flow<WorkoutState?>
 
     /**
+     * Provides a flow of the current machine state (cable forces) for the given device.
+     * This should emit regardless of workout activity, enabling auto-detection of workout start/end.
+     */
+    fun getMachineStateFlow(device: Peripheral): Flow<MachineState?>
+
+    /**
      * Starts a just lift workout in echo mode with the given difficulty
      *
      * @param maxReps Optional maxReps to set for the workout, after which the workout will automatically stop
      * @param eccentricPercentage Percentage of the repetition time that should be spent in the eccentric phase (0.0 - 1.3)
      */
-    suspend fun startJustLiftEchoWorkout(
+    suspend fun startWorkout(
         device: Peripheral,
         difficulty: EchoDifficulty,
         @FloatRange(0.0, 1.3)
@@ -41,9 +47,12 @@ interface VitruvianDeviceManager {
         val maxReps: Int?,
         val upwardRepetitionsCompleted: Int,
         val downwardRepetitionsCompleted: Int,
-        val forceLeftCable: Double,
-        val forceRightCable: Double,
         val timeElapsed: Duration
+    )
+
+    data class MachineState(
+        val forceLeftCable: Double,
+        val forceRightCable: Double
     )
 
     enum class EchoDifficulty {

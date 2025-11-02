@@ -32,4 +32,5 @@ I might look into it.
     - [] Log bluetooth communication for easier debugging
 - [] Convert to Multiplatform project
 - [] Echo mode
+    - [] Start automatically when lifting cables from ground
     - [] Stop workout automatically when lowering cables to ground

@@ -27,17 +27,12 @@ fun WorkoutDestination(
     navController: NavController,
     viewModel: WorkoutViewModel = koinViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val connectedDevice by viewModel.connectedDevice.collectAsStateWithLifecycle()
-    val connectedDeviceState by viewModel.connectedDeviceState.collectAsStateWithLifecycle(initialValue = State.Disconnected())
-    val availableDevices by viewModel.availableDevices.collectAsStateWithLifecycle(initialValue = emptySet())
-    val workoutState by viewModel.workoutState.collectAsStateWithLifecycle(initialValue = null)
-    val scaffoldState = rememberBottomSheetScaffoldState(
-        bottomSheetState = rememberStandardBottomSheetState(skipHiddenState = false)
-    )
+    // Flows that can be paused when app is in background
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState = rememberStandardBottomSheetState(skipHiddenState = false))
 
-    LaunchedEffect(connectedDeviceState, availableDevices) {
-        if (connectedDeviceState is State.Connected && availableDevices.isEmpty()) {
+    LaunchedEffect(state.connectedPeripheralState, state.availablePeripherals) {
+        if (state.connectedPeripheralState is State.Connected && state.availablePeripherals.isEmpty()) {
             scaffoldState.bottomSheetState.hide()
         } else {
             scaffoldState.bottomSheetState.expand()
@@ -50,20 +45,20 @@ fun WorkoutDestination(
         sheetSwipeEnabled = false,
         sheetContent = {
             ConnectionScreen(
-                availableDevices = availableDevices.toList(),
+                availableDevices = state.availablePeripherals.toList(),
                 onDeviceSelected = viewModel::onDeviceSelected
             )
         }
     ) {
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .padding(it)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(it)
+        ) {
             WorkoutScreen(
-                uiState = uiState,
+                state = state,
                 onEccentricSliderValueChange = viewModel::onEccentricSliderValueChange,
                 onRepetitionsSliderValueChange = viewModel::onRepetitionsSliderValueChange,
-                connectedDevice = connectedDevice,
-                workoutState = workoutState,
                 onStartWorkoutClicked = viewModel::onStartWorkoutClicked,
                 onStopWorkoutClicked = viewModel::onStopWorkoutClicked,
                 onDisconnectClicked = viewModel::onDisconnectClicked

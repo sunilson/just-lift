@@ -10,67 +10,46 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.android.annotation.KoinViewModel
 
+// TODO Store workout parameters and load them on start to persist data across app restarts
 @KoinViewModel
 @OptIn(ExperimentalCoroutinesApi::class)
 class WorkoutViewModel(
     private val vitruvianDeviceManager: VitruvianDeviceManager
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(WorkoutUiState())
-    val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
+    private val _state = MutableStateFlow(State())
+    val state: StateFlow<State> = _state.asStateFlow()
 
-    private val _connectedDevice = MutableStateFlow<Peripheral?>(null)
-    val connectedDevice: StateFlow<Peripheral?> = _connectedDevice.asStateFlow()
+    private val _connectedPeripheral = MutableStateFlow<Peripheral?>(null)
 
-    private val _loading = MutableStateFlow(false)
-    val loading: StateFlow<Boolean> = _loading.asStateFlow()
-
-    val connectedDeviceState: Flow<State> = connectedDevice.flatMapLatest { it?.state ?: flowOf(State.Disconnected()) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), State.Disconnected())
-
-    val workoutState: Flow<VitruvianDeviceManager.WorkoutState?> = connectedDevice.flatMapLatest { device ->
-        if (device != null) {
-            vitruvianDeviceManager.getWorkoutStateFlow(device)
-        } else {
-            flowOf(null)
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-    val availableDevices: Flow<ImmutableList<Peripheral>> = connectedDevice.flatMapLatest { it?.state ?: flowOf(State.Disconnected()) }
-        .flatMapLatest { state ->
-            if (state is State.Disconnected) {
-                vitruvianDeviceManager.getScannedDevicesFlow()
-                    .map { it.toImmutableList() }
-            } else {
-                flowOf(persistentListOf())
-            }
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), persistentListOf())
+    init {
+        observeConnectedPeripheralState()
+        observeAvailablePeripherals()
+        observeWorkoutState()
+        observeMachineState()
+    }
 
     fun onDeviceSelected(device: Peripheral) {
         viewModelScope.launch {
             try {
-                _loading.value = true
-                _connectedDevice.value?.disconnect()
+                _state.update { it.copy(loading = true) }
+                _connectedPeripheral.value?.disconnect()
                 device.connect()
-                _connectedDevice.value = device
+                _connectedPeripheral.value = device
             } catch (error: Exception) {
                 Log.e("WorkoutViewModel", "Error connecting to device", error)
             } finally {
-                _loading.value = false
+                _state.update { it.copy(loading = false) }
             }
         }
     }
@@ -78,17 +57,17 @@ class WorkoutViewModel(
     fun onStartWorkoutClicked() {
         viewModelScope.launch {
             try {
-                _loading.value = true
-                vitruvianDeviceManager.startJustLiftEchoWorkout(
-                    device = _connectedDevice.value ?: return@launch,
+                _state.update { it.copy(loading = true) }
+                vitruvianDeviceManager.startWorkout(
+                    device = _connectedPeripheral.value ?: return@launch,
                     difficulty = VitruvianDeviceManager.EchoDifficulty.HARD,
-                    eccentricPercentage = uiState.value.eccentricSliderValue.toDouble(),
+                    eccentricPercentage = state.value.eccentricSliderValue.toDouble(),
                     maxReps = null
                 )
             } catch (e: Exception) {
                 Log.e("WorkoutViewModel", "Error starting workout", e)
             } finally {
-                _loading.value = false
+                _state.update { it.copy(loading = false) }
             }
         }
     }
@@ -96,12 +75,12 @@ class WorkoutViewModel(
     fun onStopWorkoutClicked() {
         viewModelScope.launch {
             try {
-                _loading.value = true
-                vitruvianDeviceManager.stopWorkout(_connectedDevice.value ?: return@launch)
+                _state.update { it.copy(loading = true) }
+                vitruvianDeviceManager.stopWorkout(_connectedPeripheral.value ?: return@launch)
             } catch (e: Exception) {
                 Log.e("WorkoutViewModel", "Error stopping workout", e)
             } finally {
-                _loading.value = false
+                _state.update { it.copy(loading = false) }
             }
         }
     }
@@ -109,26 +88,73 @@ class WorkoutViewModel(
     fun onDisconnectClicked() {
         viewModelScope.launch {
             try {
-                _loading.value = true
-                _connectedDevice.value?.disconnect()
-                _connectedDevice.value = null
+                _state.update { it.copy(loading = true) }
+                _connectedPeripheral.value?.disconnect()
+                _connectedPeripheral.value = null
             } catch (e: Exception) {
                 // Handle disconnection error if needed
             } finally {
-                _loading.value = false
+                _state.update { it.copy(loading = false) }
             }
         }
     }
 
     fun onEccentricSliderValueChange(value: Float) {
-        _uiState.update { it.copy(eccentricSliderValue = value) }
+        _state.update { it.copy(eccentricSliderValue = value) }
     }
 
     fun onRepetitionsSliderValueChange(value: Float) {
-        _uiState.update { it.copy(repetitionsSliderValue = value.toInt()) }
+        _state.update { it.copy(repetitionsSliderValue = value.toInt()) }
     }
 
-    data class WorkoutUiState(
+
+    private fun observeConnectedPeripheralState() {
+        viewModelScope.launch {
+            this@WorkoutViewModel._connectedPeripheral
+                .flatMapLatest { it?.state ?: flowOf(com.juul.kable.State.Disconnected()) }
+                .collect { _state.update { state -> state.copy(connectedPeripheralState = it) } }
+        }
+    }
+
+    private fun observeAvailablePeripherals() {
+        viewModelScope.launch {
+            this@WorkoutViewModel._connectedPeripheral
+                .flatMapLatest { it?.state ?: flowOf(com.juul.kable.State.Disconnected()) }
+                .flatMapLatest { state ->
+                    if (state is State.Disconnected) {
+                        vitruvianDeviceManager.getScannedDevicesFlow()
+                            .map { it.toImmutableList() }
+                    } else {
+                        flowOf(persistentListOf())
+                    }
+                }
+                .collect { peripherals -> _state.update { state -> state.copy(availablePeripherals = peripherals) } }
+        }
+    }
+
+    private fun observeWorkoutState() {
+        viewModelScope.launch {
+            this@WorkoutViewModel._connectedPeripheral
+                .flatMapLatest { if (it != null) vitruvianDeviceManager.getWorkoutStateFlow(it) else flowOf(null) }
+                .collect { workoutState -> _state.update { state -> state.copy(workoutState = workoutState) } }
+        }
+    }
+
+    private fun observeMachineState() {
+        viewModelScope.launch {
+            this@WorkoutViewModel._connectedPeripheral
+                .flatMapLatest { if (it != null) vitruvianDeviceManager.getMachineStateFlow(it) else flowOf(null) }
+                .collect { machineState -> _state.update { state -> state.copy(machineState = machineState) } }
+        }
+    }
+
+    data class State(
+        val loading: Boolean = false,
+        val connectedPeripheral: Peripheral? = null,
+        val connectedPeripheralState: com.juul.kable.State = com.juul.kable.State.Disconnected(),
+        val availablePeripherals: ImmutableList<Peripheral> = persistentListOf(),
+        val workoutState: VitruvianDeviceManager.WorkoutState? = null,
+        val machineState: VitruvianDeviceManager.MachineState? = null,
         val eccentricSliderValue: Float = 1.0f,
         val repetitionsSliderValue: Int = 8
     )

@@ -39,16 +39,39 @@ class VitruvianDeviceManagerImpl(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 ) : VitruvianDeviceManager {
 
+    private fun ensureMachineJobRunning(device: Peripheral) {
+        val session = sessionFor(device)
+        if (session.machineJob?.isActive == true) return
+        session.machineJob = scope.launch {
+            while (isActive) {
+                try {
+                    val data = device.read(MONITOR_CHARACTERISTIC)
+                    val (leftKg, rightKg) = parseMonitorLoads(data)
+                    session.machineState.value = VitruvianDeviceManager.MachineState(
+                        forceLeftCable = leftKg,
+                        forceRightCable = rightKg
+                    )
+                } catch (_: Throwable) {
+                    // Likely disconnected or transient read failure; keep trying at a slower pace
+                }
+                delay(100)
+            }
+        }
+    }
+
     // Per-device workout session state
     private data class WorkoutSession(
         var startedAtMillis: Long = 0L,
         var maxReps: Int? = null,
         val state: MutableStateFlow<VitruvianDeviceManager.WorkoutState?> = MutableStateFlow(null),
+        // Machine state is per device and should emit regardless of workout
+        val machineState: MutableStateFlow<VitruvianDeviceManager.MachineState?> = MutableStateFlow(null),
         var upwardReps: Int = 0,
         var downwardReps: Int = 0,
         var halfRepNotifications: Int = 0,
         var calibrationRepsToSkip: Int = 3,
-        var monitorJob: Job? = null,
+        var machineJob: Job? = null,
+        var timeJob: Job? = null,
         var repJob: Job? = null
     )
 
@@ -72,7 +95,13 @@ class VitruvianDeviceManagerImpl(
         return sessionFor(device).state
     }
 
-    override suspend fun startJustLiftEchoWorkout(
+    override fun getMachineStateFlow(device: Peripheral): Flow<VitruvianDeviceManager.MachineState?> {
+        val session = sessionFor(device)
+        ensureMachineJobRunning(device)
+        return session.machineState
+    }
+
+    override suspend fun startWorkout(
         device: Peripheral,
         difficulty: VitruvianDeviceManager.EchoDifficulty,
         eccentricPercentage: Double,
@@ -99,7 +128,7 @@ class VitruvianDeviceManagerImpl(
         // Start local session tracking of workout state
         val session = sessionFor(device)
         // Cancel any existing jobs for safety
-        session.monitorJob?.cancel()
+        session.timeJob?.cancel()
         session.repJob?.cancel()
         session.startedAtMillis = System.currentTimeMillis()
         session.maxReps = maxReps
@@ -112,30 +141,18 @@ class VitruvianDeviceManagerImpl(
             maxReps = maxReps,
             upwardRepetitionsCompleted = 0,
             downwardRepetitionsCompleted = 0,
-            forceLeftCable = 0.0,
-            forceRightCable = 0.0,
             timeElapsed = Duration.ZERO
         )
 
-        // Poll monitor characteristic every 100ms like the JS reference
-        session.monitorJob = scope.launch {
+        // Ensure machine polling is running to keep forces updated globally
+        ensureMachineJobRunning(device)
+
+        // Update elapsed time every 100ms while workout is active
+        session.timeJob = scope.launch {
             while (isActive) {
-                try {
-                    val data = device.read(MONITOR_CHARACTERISTIC)
-                    val (leftKg, rightKg) = parseMonitorLoads(data)
-                    val elapsed = (System.currentTimeMillis() - session.startedAtMillis).milliseconds
-                    val curr = session.state.value
-                    // Only update if workout active
-                    if (curr != null) {
-                        session.state.value = curr.copy(
-                            forceLeftCable = leftKg,
-                            forceRightCable = rightKg,
-                            timeElapsed = elapsed
-                        )
-                    }
-                } catch (_: Throwable) {
-                    // Ignore transient read errors
-                }
+                val elapsed = (System.currentTimeMillis() - session.startedAtMillis).milliseconds
+                val curr = session.state.value ?: break
+                session.state.value = curr.copy(timeElapsed = elapsed)
                 delay(100)
             }
         }
@@ -197,11 +214,13 @@ class VitruvianDeviceManagerImpl(
             // Ignore write errors on stop
         }
         val session = sessionFor(device)
-        session.monitorJob?.cancel()
+        session.timeJob?.cancel()
         session.repJob?.cancel()
-        session.monitorJob = null
+        session.timeJob = null
         session.repJob = null
         session.state.value = null
+        // Keep machineJob running so forces continue to be emitted when idle
+        ensureMachineJobRunning(device)
     }
 
     // --- BLE + Protocol helpers -----------------------------------------------------------------
@@ -265,13 +284,13 @@ class VitruvianDeviceManagerImpl(
         buf.put(target.toByte())
 
         // Reserved u16 at 0x06-0x07
-        buf.putShort(0)
+        buf.putShort(0.toShort())
 
         // Echo params
         // Eccentric % at 0x08 (u16)
         buf.putShort(eccentricPct.toShort())
         // Concentric % at 0x0A (u16) is constant 50
-        buf.putShort(50)
+        buf.putShort(50.toShort())
         // Smoothing at 0x0C (f32)
         buf.putFloat(0.1f)
 
