@@ -1,6 +1,5 @@
 package at.sunilson.justlift.features.workout.data
 
-import android.content.Context
 import android.util.Log
 import com.juul.kable.Advertisement
 import com.juul.kable.Characteristic
@@ -37,7 +36,6 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 @Single
 class VitruvianDeviceManagerImpl(
-    private val appContext: Context,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 ) : VitruvianDeviceManager {
 
@@ -130,7 +128,7 @@ class VitruvianDeviceManagerImpl(
                 } catch (_: Throwable) {
                     // Likely disconnected or transient read failure; keep trying at a slower pace
                 }
-                delay(100)
+                delay(MONITOR_INTERVAL_MS)
             }
         }
     }

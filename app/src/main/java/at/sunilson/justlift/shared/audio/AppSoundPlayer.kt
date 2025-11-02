@@ -9,8 +9,7 @@ import org.koin.core.annotation.Single
 
 /**
  * Simple app-wide sound player for short UI sound effects.
- * Uses SoundPool for very short, frequent sounds and falls back to MediaPlayer if a sample
- * hasn't finished loading yet.
+ * Uses SoundPool for very short, frequent sounds.
  */
 @Single
 class AppSoundPlayer(private val context: Context) {
@@ -54,11 +53,12 @@ class AppSoundPlayer(private val context: Context) {
     fun playRepRegular() = play(KEY_REP_REGULAR, volume = 0.9f)
 
     private fun stop(key: String) {
-        val sampleId = soundIdByKey[key]
-        if (sampleId != null && loadedIds.contains(sampleId)) {
-            Log.d(TAG, "Stopping via SoundPool: $key")
-            soundPool.stop(playingIds[key] ?: return)
-            return
+        val streamId = playingIds.remove(key)
+        if (streamId != null && streamId != 0) {
+            Log.d(TAG, "Stopping via SoundPool: $key (streamId=$streamId)")
+            soundPool.stop(streamId)
+        } else {
+            Log.d(TAG, "Stop requested but no active stream for: $key")
         }
     }
 
@@ -67,8 +67,11 @@ class AppSoundPlayer(private val context: Context) {
         if (sampleId != null && loadedIds.contains(sampleId)) {
             Log.d(TAG, "Playing via SoundPool: $key")
             val id = soundPool.play(sampleId, volume, volume, /*priority*/ 1, /*loop*/ 0, /*rate*/ 1f)
-            playingIds[key] = id
-            return
+            if (id != 0) {
+                playingIds[key] = id
+            }
+        } else {
+            Log.d(TAG, "Play requested before sample loaded: $key")
         }
     }
 

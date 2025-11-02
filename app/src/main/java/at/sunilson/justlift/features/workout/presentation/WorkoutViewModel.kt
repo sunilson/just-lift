@@ -23,7 +23,6 @@ import org.koin.android.annotation.KoinViewModel
 import kotlin.math.abs
 import kotlin.math.ceil
 
-// TODO Store workout parameters and load them on start to persist data across app restarts
 @KoinViewModel
 @OptIn(ExperimentalCoroutinesApi::class)
 class WorkoutViewModel(
@@ -69,7 +68,7 @@ class WorkoutViewModel(
 
     fun onStartWorkoutClicked() {
         viewModelScope.launch {
-            startWorkout()
+            tryStartWorkout()
         }
     }
 
@@ -92,7 +91,7 @@ class WorkoutViewModel(
                 _state.update { it.copy(loading = true) }
                 _connectedPeripheral.value?.disconnect()
                 _connectedPeripheral.value = null
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // Handle disconnection error if needed
             } finally {
                 _state.update { it.copy(loading = false) }
@@ -232,7 +231,7 @@ class WorkoutViewModel(
                                     val nowCall = System.currentTimeMillis()
                                     if (nowCall - lastAutoStartAt > AUTO_START_DEBOUNCE_MS && state.value.workoutState == null) {
                                         lastAutoStartAt = nowCall
-                                        startWorkout()
+                                        tryStartWorkout()
                                         resetAutoStart()
                                     }
                                     break
@@ -255,6 +254,9 @@ class WorkoutViewModel(
                         countdownSoundStarted = false
                         _state.update { it.copy(autoStartInSeconds = null) }
 
+                        // Explicitly stop only the countdown sound when the hold is lost
+                        soundPlayer.stopAutoStartCountDown()
+
                         // Restart ticker; countdown sound will start after pre-count window
                         autoStartTickerJob?.cancel()
 
@@ -271,8 +273,7 @@ class WorkoutViewModel(
                         autoStartTickerJob = viewModelScope.launch {
                             countdownSoundStarted = false
                             while (startHoldSinceMillis != null && state.value.workoutState == null) {
-                                val start = startHoldSinceMillis ?: break
-                                val elapsedMs = System.currentTimeMillis() - start
+                                val elapsedMs = System.currentTimeMillis() - (startHoldSinceMillis ?: break)
                                 val remainingMs = AUTO_START_TOTAL_HOLD_MS - elapsedMs
 
                                 if (!countdownSoundStarted && elapsedMs >= AUTO_START_PRECOUNT_MS) {
@@ -280,7 +281,7 @@ class WorkoutViewModel(
                                     countdownSoundStarted = true
                                 }
 
-                                val secondsLeftTicker: Int? = if (elapsedMs >= AUTO_START_PRECOUNT_MS) {
+                                val secondsLeftTicker = if (elapsedMs >= AUTO_START_PRECOUNT_MS) {
                                     if (remainingMs > 0) ceil(remainingMs / 1000.0).toInt() else 0
                                 } else null
                                 _state.update { it.copy(autoStartInSeconds = secondsLeftTicker) }
@@ -289,14 +290,14 @@ class WorkoutViewModel(
                                     val nowCall = System.currentTimeMillis()
                                     if (nowCall - lastAutoStartAt > AUTO_START_DEBOUNCE_MS && state.value.workoutState == null) {
                                         lastAutoStartAt = nowCall
-                                        startWorkout()
+                                        tryStartWorkout()
                                         resetAutoStart()
                                     }
                                     break
                                 }
                                 delay(100)
                             }
-                        }
+                        }.also { it.invokeOnCompletion { soundPlayer.stopAutoStartCountDown() } }
                         return@collect
                     }
 
@@ -310,7 +311,7 @@ class WorkoutViewModel(
                     if (elapsed >= AUTO_START_TOTAL_HOLD_MS && now - lastAutoStartAt > AUTO_START_DEBOUNCE_MS) {
                         lastAutoStartAt = now
                         viewModelScope.launch {
-                            startWorkout()
+                            tryStartWorkout()
                             resetAutoStart()
                         }
                     }
@@ -318,7 +319,7 @@ class WorkoutViewModel(
         }
     }
 
-    private suspend fun startWorkout() {
+    private suspend fun tryStartWorkout() {
         try {
             _state.update { it.copy(loading = true) }
             vitruvianDeviceManager.startWorkout(

@@ -33,3 +33,4 @@ I might look into it.
 - [ ] Convert to Multiplatform project
 - [ ] Store workout configuration and load on app start
 - [ ] Persist and display Statistics
+- [ ] Error handling and user feedback
