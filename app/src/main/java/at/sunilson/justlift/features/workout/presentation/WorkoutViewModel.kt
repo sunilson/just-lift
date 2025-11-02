@@ -326,7 +326,7 @@ class WorkoutViewModel(
                 device = _connectedPeripheral.value ?: return,
                 difficulty = VitruvianDeviceManager.EchoDifficulty.HARD,
                 eccentricPercentage = state.value.eccentricSliderValue.toDouble(),
-                maxReps = null
+                maxReps = state.value.repetitionsSliderValue.takeIf { !state.value.useNoRepLimit }
             )
         } catch (e: Exception) {
             Log.e("WorkoutViewModel", "Error starting workout", e)

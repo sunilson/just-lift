@@ -61,15 +61,17 @@ fun WorkoutScreen(
         Checkbox(checked = state.useNoRepLimit, onCheckedChange = { onUseNoRepLimitChange(it) }, enabled = state.workoutState == null)
 
         AnimatedVisibility(!state.useNoRepLimit) {
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Repetitions: ${state.repetitionsSliderValue}")
-            Slider(
-                value = state.repetitionsSliderValue.toFloat(),
-                onValueChange = onRepetitionsSliderValueChange,
-                valueRange = 1f..20f,
-                steps = 19,
-                enabled = state.workoutState == null
-            )
+            Column {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Repetitions: ${state.repetitionsSliderValue}")
+                Slider(
+                    value = state.repetitionsSliderValue.toFloat(),
+                    onValueChange = onRepetitionsSliderValueChange,
+                    valueRange = 1f..20f,
+                    steps = 19,
+                    enabled = state.workoutState == null
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(32.dp))

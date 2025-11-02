@@ -17,20 +17,6 @@ android {
         version = release(36)
     }
 
-    signingConfigs {
-        create("release") {
-            val ksPass = project.secret("JUST_LIFT_KEYSTORE_PASSWORD")
-            val alias = project.secret("JUST_LIFT_KEY_ALIAS")
-            val keyPass = project.secret("JUST_LIFT_KEY_PASSWORD")
-            if (ksPass != null && alias != null && keyPass != null) {
-                storeFile = file("$rootDir/justlift.jks")
-                storePassword = ksPass
-                keyAlias = alias
-                keyPassword = keyPass
-            }
-        }
-    }
-
     defaultConfig {
         applicationId = "at.sunilson.justlift"
         minSdk = 31
@@ -44,7 +30,6 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
-            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

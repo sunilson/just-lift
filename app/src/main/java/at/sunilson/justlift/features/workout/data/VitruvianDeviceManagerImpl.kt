@@ -293,8 +293,8 @@ class VitruvianDeviceManagerImpl(
                                 stopWorkout(device)
                             }
                         } else {
-                            // Default: stop on downward completion when bottom reps reach target
-                            if (!isUpwardCompletion && session.downwardReps >= target) {
+                            // Default: stop on downward completion when bottom reps reach target + 1 (stop at bottom after last top)
+                            if (!isUpwardCompletion && session.downwardReps >= target + 1) {
                                 stopWorkout(device)
                             }
                         }
@@ -455,7 +455,7 @@ class VitruvianDeviceManagerImpl(
         private const val POSITION_LOG_THROTTLE_MS: Long = 1000L
 
         private const val AUTO_STOP_HOLD_MS: Long = 5_000L
-        private const val BOTTOM_POS_THRESHOLD: Double = 0.05 // 2% of travel considered bottom
+        private const val BOTTOM_POS_THRESHOLD: Double = 0.2
         private const val MONITOR_INTERVAL_MS: Long = 100
         private const val CALIBRATION_REPS: Int = 3
 
