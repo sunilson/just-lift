@@ -24,13 +24,11 @@ I might look into it.
 - [ ] Static Analysis
     - [ ] Add detekt
     - [ ] Add ktlint
-- [ ] Add CI with GitHub Actions
-    - [ ] Static Analysis
-    - [ ] Build APK and publish to Releases
 - [ ] Logging
     - [ ] Persist logs for debugging
     - [ ] Log bluetooth communication for easier debugging
 - [ ] Convert to Multiplatform project
 - [ ] Store workout configuration and load on app start
+- [ ] Persist last used device and auto-connect and allow clearing it
 - [ ] Persist and display Statistics
 - [ ] Error handling and user feedback
