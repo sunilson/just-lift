@@ -85,12 +85,17 @@ class VitruvianDeviceManagerImpl(
                         positionCableRight = posRight
                     )
 
-                    // Auto-stop logic: if both cables are near bottom for HOLD then stop
+                    // Auto-stop logic: trigger hold-based stop when either
+                    // - both cables are near bottom, OR
+                    // - both cables are at or below the light-load threshold (<= 2.6 kg)
                     val active = session.state.value != null
                     if (active) {
                         val atBottomLeft = posLeft <= BOTTOM_POS_THRESHOLD
                         val atBottomRight = posRight <= BOTTOM_POS_THRESHOLD
-                        if (atBottomLeft && atBottomRight) {
+                        val lightLoadBoth = (leftKg <= FORCE_AUTO_STOP_KG && rightKg <= FORCE_AUTO_STOP_KG)
+                        val shouldAutoStop = (atBottomLeft && atBottomRight) || lightLoadBoth
+
+                        if (shouldAutoStop) {
                             val now = System.currentTimeMillis()
                             if (session.bottomHoldSince == null) {
                                 session.bottomHoldSince = now
@@ -455,15 +460,16 @@ class VitruvianDeviceManagerImpl(
         private const val POSITION_LOG_THROTTLE_MS: Long = 1000L
 
         private const val AUTO_STOP_HOLD_MS: Long = 5_000L
-        private const val BOTTOM_POS_THRESHOLD: Double = 0.2
+        private const val BOTTOM_POS_THRESHOLD: Double = 0.1
+        private const val FORCE_AUTO_STOP_KG: Double = 2.6
         private const val MONITOR_INTERVAL_MS: Long = 100
         private const val CALIBRATION_REPS: Int = 3
 
         // Pre-initialization timing
         // After prepareForWorkout(), consider the device prepared for this window
-        private const val PREPARE_VALID_MS: Long = 10_000L
+        private const val PREPARE_VALID_MS: Long = 10000L
 
         // Throttle multiple prepare calls to at most once per second
-        private const val PREPARE_THROTTLE_MS: Long = 1_000L
+        private const val PREPARE_THROTTLE_MS: Long = 1000L
     }
 }

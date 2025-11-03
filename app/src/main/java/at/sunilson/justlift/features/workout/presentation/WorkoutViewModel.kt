@@ -328,8 +328,8 @@ class WorkoutViewModel(
             _state.update { it.copy(loading = true) }
             vitruvianDeviceManager.startWorkout(
                 device = _connectedPeripheral.value ?: return,
-                difficulty = VitruvianDeviceManager.EchoDifficulty.HARDEST,
-                eccentricPercentage = state.value.eccentricSliderValue.toDouble(),
+                difficulty = state.value.echoDifficulty,
+                eccentricPercentage = (state.value.eccentricSliderValue / 100.0).toDouble(),
                 maxReps = state.value.repetitionsSliderValue.takeIf { !state.value.useNoRepLimit }
             )
         } catch (e: Exception) {
@@ -359,25 +359,25 @@ class WorkoutViewModel(
         val machineState: VitruvianDeviceManager.MachineState? = null,
         val useNoRepLimit: Boolean = true,
         val echoDifficulty: VitruvianDeviceManager.EchoDifficulty = VitruvianDeviceManager.EchoDifficulty.HARDEST,
-        val eccentricSliderValue: Float = 1.0f,
+        val eccentricSliderValue: Float = 100.0f,
         val repetitionsSliderValue: Int = 8,
         val autoStartInSeconds: Int? = null
     )
 
     companion object {
         // Total hold time before auto-start
-        private const val AUTO_START_TOTAL_HOLD_MS: Long = 5_000L
+        private const val AUTO_START_TOTAL_HOLD_MS: Long = 4000L
 
         // Length of audible/visible countdown (seconds)
-        private const val AUTO_START_COUNTDOWN_SECONDS: Int = 3
+        private const val AUTO_START_COUNTDOWN_MS: Long = 3000L
 
         // Silent pre-count before countdown starts
-        private const val AUTO_START_PRECOUNT_MS: Long = AUTO_START_TOTAL_HOLD_MS - AUTO_START_COUNTDOWN_SECONDS * 1000L // 2_000L
+        private const val AUTO_START_PRECOUNT_MS: Long = AUTO_START_TOTAL_HOLD_MS - AUTO_START_COUNTDOWN_MS
 
-        private const val LIFTED_POS_THRESHOLD: Double = 0.05 // 5%
+        private const val LIFTED_POS_THRESHOLD: Double = 0.1
 
         // Allow small fluctuations while holding
-        private const val HOLD_EPSILON: Double = 0.01 // +/-1%
+        private const val HOLD_EPSILON: Double = 0.025
 
         // Prevent repeated auto-starts in quick succession
         private const val AUTO_START_DEBOUNCE_MS: Long = 5_000L

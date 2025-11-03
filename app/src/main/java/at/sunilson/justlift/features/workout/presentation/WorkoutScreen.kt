@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -107,12 +108,12 @@ fun WorkoutScreen(
 
                 if (!isWorkoutInProgress && isConnected && !starting) {
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Eccentric Percentage: ${(state.eccentricSliderValue * 100).toInt()}%")
+                    Text("Eccentric Percentage: ${(state.eccentricSliderValue.toDouble()).toInt()}%")
                     Slider(
                         value = state.eccentricSliderValue,
                         onValueChange = onEccentricSliderValueChange,
-                        valueRange = 0f..1.3f,
-                        steps = 14,
+                        valueRange = 0f..130f,
+                        steps = 12,
                         enabled = state.workoutState == null
                     )
                     Spacer(modifier = Modifier.height(16.dp))
@@ -127,8 +128,10 @@ fun WorkoutScreen(
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("No rep limit")
-                    Checkbox(checked = state.useNoRepLimit, onCheckedChange = { onUseNoRepLimitChange(it) }, enabled = state.workoutState == null)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("No rep limit")
+                        Checkbox(checked = state.useNoRepLimit, onCheckedChange = { onUseNoRepLimitChange(it) }, enabled = state.workoutState == null)
+                    }
 
                     AnimatedVisibility(!state.useNoRepLimit) {
                         Column {
