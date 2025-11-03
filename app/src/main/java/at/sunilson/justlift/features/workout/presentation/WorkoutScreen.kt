@@ -23,12 +23,14 @@ import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager
-import at.sunilson.justlift.features.workout.presentation.connection.ConnectionScreen
 import at.sunilson.justlift.features.workout.presentation.preview.FakePeripheral
+import at.sunilson.justlift.features.workout.presentation.widgets.ConnectionWidget
+import at.sunilson.justlift.features.workout.presentation.widgets.WorkoutDataWidget
 import at.sunilson.justlift.shared.presentation.PreviewLightDarkDevices
 import at.sunilson.justlift.shared.presentation.ScreenPreview
 import com.juul.kable.ExperimentalApi
@@ -53,6 +55,9 @@ fun WorkoutScreen(
     onDisconnectClicked: () -> Unit = {}
 ) {
     val scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState = rememberStandardBottomSheetState(skipHiddenState = false))
+    val isWorkoutInProgress = state.workoutState != null && state.machineState != null
+    val isConnected = state.connectedPeripheralState is State.Connected
+    val starting = state.autoStartInSeconds != null
 
     LaunchedEffect(state.connectedPeripheralState, state.availablePeripherals) {
         if (state.connectedPeripheralState is State.Connected && state.availablePeripherals.isEmpty()) {
@@ -67,7 +72,7 @@ fun WorkoutScreen(
         sheetDragHandle = null,
         sheetSwipeEnabled = false,
         sheetContent = {
-            ConnectionScreen(
+            ConnectionWidget(
                 availableDevices = state.availablePeripherals.toList(),
                 onDeviceSelected = onDeviceSelected,
             )
@@ -78,66 +83,66 @@ fun WorkoutScreen(
                 .fillMaxSize()
                 .padding(it)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(style = MaterialTheme.typography.headlineLarge, text = "Just Lift")
 
                 Spacer(modifier = Modifier.height(48.dp))
-                Text("Connected device: ${state.connectedPeripheral?.name ?: "None"}")
 
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Workout state: ${state.workoutState}")
+                if (starting) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Auto start in seconds: ${state.autoStartInSeconds}")
+                }
 
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Machine state: ${state.machineState}")
+                if (isWorkoutInProgress) {
+                    WorkoutDataWidget(
+                        workoutState = state.workoutState,
+                        machineState = state.machineState
+                    )
+                }
 
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Auto start in seconds: ${state.autoStartInSeconds ?: "N/A"}")
+                if (!isWorkoutInProgress && isConnected && !starting) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Eccentric Percentage: ${(state.eccentricSliderValue * 100).toInt()}%")
+                    Slider(
+                        value = state.eccentricSliderValue,
+                        onValueChange = onEccentricSliderValueChange,
+                        valueRange = 0f..1.3f,
+                        steps = 14,
+                        enabled = state.workoutState == null
+                    )
 
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Auto stop in seconds: ${state.workoutState?.autoStopInSeconds ?: "N/A"}")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("No rep limit")
+                    Checkbox(checked = state.useNoRepLimit, onCheckedChange = { onUseNoRepLimitChange(it) }, enabled = state.workoutState == null)
 
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Eccentric Percentage: ${(state.eccentricSliderValue * 100).toInt()}%")
-                Slider(
-                    value = state.eccentricSliderValue,
-                    onValueChange = onEccentricSliderValueChange,
-                    valueRange = 0f..1.3f,
-                    steps = 14,
-                    enabled = state.workoutState == null
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("No rep limit")
-                Checkbox(checked = state.useNoRepLimit, onCheckedChange = { onUseNoRepLimitChange(it) }, enabled = state.workoutState == null)
-
-                AnimatedVisibility(!state.useNoRepLimit) {
-                    Column {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("Repetitions: ${state.repetitionsSliderValue}")
-                        Slider(
-                            value = state.repetitionsSliderValue.toFloat(),
-                            onValueChange = onRepetitionsSliderValueChange,
-                            valueRange = 1f..20f,
-                            steps = 19,
-                            enabled = state.workoutState == null
-                        )
+                    AnimatedVisibility(!state.useNoRepLimit) {
+                        Column {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Repetitions: ${state.repetitionsSliderValue}")
+                            Slider(
+                                value = state.repetitionsSliderValue.toFloat(),
+                                onValueChange = onRepetitionsSliderValueChange,
+                                valueRange = 1f..20f,
+                                steps = 19,
+                                enabled = state.workoutState == null
+                            )
+                        }
                     }
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Text(
+                        "Lift and hold to start workout",
+                        style = MaterialTheme.typography.headlineMedium,
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
-                if (state.connectedPeripheralState != State.Disconnected()) {
+                if (isConnected && !isWorkoutInProgress) {
                     Button(onClick = { onDisconnectClicked() }) {
                         Text("Disconnect Device")
                     }
-                    if (state.workoutState == null) {
-                        Button(onClick = { onStartWorkoutClicked() }) {
-                            Text("Start Workout")
-                        }
-                    }
-
-                    if (state.workoutState != null) {
-                        Button(onClick = { onStopWorkoutClicked() }) { Text("Stop Workout") }
-                    }
+                }
+                if (isConnected && isWorkoutInProgress) {
+                    Button(onClick = { onStopWorkoutClicked() }) { Text("Stop Workout") }
                 }
             }
         }
@@ -201,8 +206,8 @@ private fun `Workout in progress`() {
                 machineState = VitruvianDeviceManager.MachineState(
                     forceLeftCable = 20.0,
                     forceRightCable = 22.0,
-                    positionCableLeft = 0.5,
-                    positionCableRight = 0.5
+                    positionCableLeft = 0.75,
+                    positionCableRight = 0.3
                 )
             )
         )

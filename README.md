@@ -32,3 +32,4 @@ I might look into it.
 - [ ] Persist last used device and auto-connect and allow clearing it
 - [ ] Persist and display Statistics
 - [ ] Error handling and user feedback
+- [ ] Localization
