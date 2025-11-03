@@ -19,9 +19,11 @@ fun WorkoutDestination(
 
     WorkoutScreen(
         state = state,
+        onDeviceSelected = viewModel::onDeviceSelected,
         onUseNoRepLimitChange = viewModel::onUseNoRepLimitChange,
         onEccentricSliderValueChange = viewModel::onEccentricSliderValueChange,
         onRepetitionsSliderValueChange = viewModel::onRepetitionsSliderValueChange,
+        onEchoDifficultyChange = viewModel::onEchoDifficultyChange,
         onStartWorkoutClicked = viewModel::onStartWorkoutClicked,
         onStopWorkoutClicked = viewModel::onStopWorkoutClicked,
         onDisconnectClicked = viewModel::onDisconnectClicked

@@ -16,7 +16,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetScaffoldState
@@ -28,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager
+import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager.EchoDifficulty
 import at.sunilson.justlift.features.workout.presentation.preview.FakePeripheral
 import at.sunilson.justlift.features.workout.presentation.widgets.ConnectionWidget
 import at.sunilson.justlift.features.workout.presentation.widgets.WorkoutDataWidget
@@ -50,6 +54,7 @@ fun WorkoutScreen(
     onUseNoRepLimitChange: (Boolean) -> Unit = {},
     onEccentricSliderValueChange: (Float) -> Unit = {},
     onRepetitionsSliderValueChange: (Float) -> Unit = {},
+    onEchoDifficultyChange: (EchoDifficulty) -> Unit = {},
     onStartWorkoutClicked: () -> Unit = {},
     onStopWorkoutClicked: () -> Unit = {},
     onDisconnectClicked: () -> Unit = {}
@@ -110,7 +115,17 @@ fun WorkoutScreen(
                         steps = 14,
                         enabled = state.workoutState == null
                     )
-
+                    Spacer(modifier = Modifier.height(16.dp))
+                    SingleChoiceSegmentedButtonRow {
+                        EchoDifficulty.entries.forEachIndexed { index, difficulty ->
+                            SegmentedButton(
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = EchoDifficulty.entries.size),
+                                onClick = { onEchoDifficultyChange(difficulty) },
+                                selected = difficulty == state.echoDifficulty,
+                                label = { Text(difficulty.toString()) }
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("No rep limit")
                     Checkbox(checked = state.useNoRepLimit, onCheckedChange = { onUseNoRepLimitChange(it) }, enabled = state.workoutState == null)

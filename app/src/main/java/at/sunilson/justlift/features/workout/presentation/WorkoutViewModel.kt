@@ -111,6 +111,10 @@ class WorkoutViewModel(
         _state.update { it.copy(useNoRepLimit = useNoRepLimit) }
     }
 
+    fun onEchoDifficultyChange(difficulty: VitruvianDeviceManager.EchoDifficulty) {
+        _state.update { it.copy(echoDifficulty = difficulty) }
+    }
+
     private fun observeConnectedPeripheral() {
         viewModelScope.launch {
             this@WorkoutViewModel._connectedPeripheral
@@ -324,7 +328,7 @@ class WorkoutViewModel(
             _state.update { it.copy(loading = true) }
             vitruvianDeviceManager.startWorkout(
                 device = _connectedPeripheral.value ?: return,
-                difficulty = VitruvianDeviceManager.EchoDifficulty.HARD,
+                difficulty = VitruvianDeviceManager.EchoDifficulty.HARDEST,
                 eccentricPercentage = state.value.eccentricSliderValue.toDouble(),
                 maxReps = state.value.repetitionsSliderValue.takeIf { !state.value.useNoRepLimit }
             )
@@ -354,6 +358,7 @@ class WorkoutViewModel(
         val workoutState: VitruvianDeviceManager.WorkoutState? = null,
         val machineState: VitruvianDeviceManager.MachineState? = null,
         val useNoRepLimit: Boolean = true,
+        val echoDifficulty: VitruvianDeviceManager.EchoDifficulty = VitruvianDeviceManager.EchoDifficulty.HARDEST,
         val eccentricSliderValue: Float = 1.0f,
         val repetitionsSliderValue: Int = 8,
         val autoStartInSeconds: Int? = null
