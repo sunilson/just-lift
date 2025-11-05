@@ -55,7 +55,11 @@ interface VitruvianDeviceManager {
         val upwardRepetitionsCompleted: Int,
         val downwardRepetitionsCompleted: Int,
         val timeElapsed: Duration,
-        val autoStopInSeconds: Int? = null
+        val autoStopInSeconds: Int? = null,
+        val averageUpwardForce: Double = 0.0,
+        val averageDownwardForce: Double = 0.0,
+        val maxUpwardForce: Double = 0.0,
+        val maxDownwardForce: Double = 0.0
     )
 
     data class MachineState(

@@ -7,21 +7,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SheetValue
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
@@ -35,6 +31,7 @@ import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager
 import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager.EchoDifficulty
 import at.sunilson.justlift.features.workout.presentation.preview.FakePeripheral
 import at.sunilson.justlift.features.workout.presentation.widgets.ConnectionWidget
+import at.sunilson.justlift.features.workout.presentation.widgets.WorkoutConfigurationWidget
 import at.sunilson.justlift.features.workout.presentation.widgets.WorkoutDataWidget
 import at.sunilson.justlift.shared.presentation.PreviewLightDarkDevices
 import at.sunilson.justlift.shared.presentation.ScreenPreview
@@ -89,10 +86,16 @@ fun WorkoutScreen(
                 .fillMaxSize()
                 .padding(it)
         ) {
-            Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Text(style = MaterialTheme.typography.headlineLarge, text = "Just Lift")
 
-                Spacer(modifier = Modifier.height(48.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 if (starting) {
                     Spacer(modifier = Modifier.height(16.dp))
@@ -108,44 +111,13 @@ fun WorkoutScreen(
 
                 if (!isWorkoutInProgress && isConnected && !starting) {
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Eccentric Percentage: ${(state.eccentricSliderValue.toDouble()).toInt()}%")
-                    Slider(
-                        value = state.eccentricSliderValue,
-                        onValueChange = onEccentricSliderValueChange,
-                        valueRange = 0f..130f,
-                        steps = 12,
-                        enabled = state.workoutState == null
+                    WorkoutConfigurationWidget(
+                        state = state,
+                        onUseNoRepLimitChange = onUseNoRepLimitChange,
+                        onEccentricSliderValueChange = onEccentricSliderValueChange,
+                        onRepetitionsSliderValueChange = onRepetitionsSliderValueChange,
+                        onEchoDifficultyChange = onEchoDifficultyChange
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    SingleChoiceSegmentedButtonRow {
-                        EchoDifficulty.entries.forEachIndexed { index, difficulty ->
-                            SegmentedButton(
-                                shape = SegmentedButtonDefaults.itemShape(index = index, count = EchoDifficulty.entries.size),
-                                onClick = { onEchoDifficultyChange(difficulty) },
-                                selected = difficulty == state.echoDifficulty,
-                                label = { Text(difficulty.toString()) }
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("No rep limit")
-                        Checkbox(checked = state.useNoRepLimit, onCheckedChange = { onUseNoRepLimitChange(it) }, enabled = state.workoutState == null)
-                    }
-
-                    AnimatedVisibility(!state.useNoRepLimit) {
-                        Column {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text("Repetitions: ${state.repetitionsSliderValue}")
-                            Slider(
-                                value = state.repetitionsSliderValue.toFloat(),
-                                onValueChange = onRepetitionsSliderValueChange,
-                                valueRange = 1f..20f,
-                                steps = 19,
-                                enabled = state.workoutState == null
-                            )
-                        }
-                    }
                     Spacer(modifier = Modifier.height(32.dp))
                     Text(
                         "Lift and hold to start workout",

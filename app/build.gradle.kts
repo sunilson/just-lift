@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.screenshot)
     kotlin("plugin.serialization") version "2.2.0"
 }
 
@@ -22,7 +23,7 @@ android {
         minSdk = 31
         targetSdk = 36
         versionCode = 1
-        versionName = "1.0.1"
+        versionName = "1.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -47,6 +48,9 @@ android {
         buildConfig = true
         compose = true
     }
+
+    @Suppress("UnstableApiUsage")
+    experimentalProperties["android.experimental.enableScreenshotTest"] = true
 }
 
 dependencies {
@@ -82,4 +86,30 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    screenshotTestImplementation(libs.screenshot.validation.api)
+    screenshotTestImplementation(libs.androidx.compose.ui.tooling)
+}
+
+// Workaround for GenerateTestConfig mergedManifest issue in alpha screenshot plugin
+afterEvaluate {
+    tasks.withType(com.android.build.gradle.tasks.GenerateTestConfig::class.java).configureEach {
+        // Skip task if mergedManifest is not configured (alpha plugin workaround)
+        onlyIf {
+            try {
+                testConfigInputs.mergedManifest.isPresent
+            } catch (e: Exception) {
+                false
+            }
+        }
+    }
+    tasks.withType(com.android.build.gradle.tasks.factory.AndroidUnitTest::class.java).configureEach {
+        // Skip task if mergedManifest is not configured (alpha plugin workaround)
+        onlyIf {
+            try {
+                testConfigInputs.mergedManifest.isPresent
+            } catch (e: Exception) {
+                false
+            }
+        }
+    }
 }

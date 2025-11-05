@@ -67,12 +67,26 @@ class VitruvianDeviceManagerImpl(
                     val posRight = (rawPosA / POSITION_NORMALIZATION_DIVISOR_MM).coerceIn(0.0, 1.0)
                     val posLeft = (rawPosB / POSITION_NORMALIZATION_DIVISOR_MM).coerceIn(0.0, 1.0)
 
+                    // Detect movement based on position deltas (filtering out tiny jitter)
+                    val moving: Boolean = if (!session.prevPosInitialized) {
+                        session.prevPosInitialized = true
+                        session.prevPosLeft = posLeft
+                        session.prevPosRight = posRight
+                        false
+                    } else {
+                        val deltaL = kotlin.math.abs(posLeft - session.prevPosLeft)
+                        val deltaR = kotlin.math.abs(posRight - session.prevPosRight)
+                        session.prevPosLeft = posLeft
+                        session.prevPosRight = posRight
+                        (deltaL + deltaR) > MOVEMENT_DELTA_THRESHOLD
+                    }
+
                     // Throttled debug logging for diagnosing position scaling
                     val nowTs = System.currentTimeMillis()
                     if (nowTs - session.lastLogAtMillis > POSITION_LOG_THROTTLE_MS) {
                         Log.d(
                             "VitruvianDevice",
-                            "pos raw A=$rawPosA B=$rawPosB | norm R=${String.format("%.3f", posRight)} L=${String.format("%.3f", posLeft)}"
+                            "pos raw A=$rawPosA B=$rawPosB | norm R=${String.format("%.3f", posRight)} L=${String.format("%.3f", posLeft)} | moving=$moving"
                         )
                         session.lastLogAtMillis = nowTs
                     }
@@ -85,14 +99,50 @@ class VitruvianDeviceManagerImpl(
                         positionCableRight = posRight
                     )
 
+                    // If workout is active and calibration finished, accumulate force metrics per phase
+                    val activeState = session.state.value
+                    if (activeState != null && session.calibrationRepsCompleted >= CALIBRATION_REPS) {
+                        val phase = session.currentPhase
+                        if (phase != null) {
+                            val combined = (leftKg + rightKg) / 2.0
+                            when (phase) {
+                                Phase.UP -> {
+                                    if (moving) {
+                                        session.upForceSum += combined
+                                        session.upForceCount += 1
+                                    }
+                                    if (combined > session.maxUpForce) session.maxUpForce = combined
+                                }
+                                Phase.DOWN -> {
+                                    if (moving) {
+                                        session.downForceSum += combined
+                                        session.downForceCount += 1
+                                    }
+                                    if (combined > session.maxDownForce) session.maxDownForce = combined
+                                }
+                            }
+                            val avgUp = if (session.upForceCount > 0) session.upForceSum / session.upForceCount else 0.0
+                            val avgDown = if (session.downForceCount > 0) session.downForceSum / session.downForceCount else 0.0
+                            session.state.value = activeState.copy(
+                                averageUpwardForce = avgUp,
+                                averageDownwardForce = avgDown,
+                                maxUpwardForce = session.maxUpForce,
+                                maxDownwardForce = session.maxDownForce
+                            )
+                        }
+                    }
+
                     // Auto-stop logic: trigger hold-based stop when either
                     // - both cables are near bottom, OR
                     // - both cables are at or below the light-load threshold (<= 2.6 kg)
+                    // Note: Force-based check is disabled during calibration because loads hover ~2.5–2.6 kg.
                     val active = session.state.value != null
                     if (active) {
                         val atBottomLeft = posLeft <= BOTTOM_POS_THRESHOLD
                         val atBottomRight = posRight <= BOTTOM_POS_THRESHOLD
-                        val lightLoadBoth = (leftKg <= FORCE_AUTO_STOP_KG && rightKg <= FORCE_AUTO_STOP_KG)
+                        val isCalibrating = session.calibrationRepsCompleted < CALIBRATION_REPS
+                        // Only allow force-based auto-stop after calibration has completed
+                        val lightLoadBoth = !isCalibrating && (leftKg <= FORCE_AUTO_STOP_KG && rightKg <= FORCE_AUTO_STOP_KG)
                         val shouldAutoStop = (atBottomLeft && atBottomRight) || lightLoadBoth
 
                         if (shouldAutoStop) {
@@ -155,6 +205,10 @@ class VitruvianDeviceManagerImpl(
         // Position parsing helpers
         var lastGoodPosA: Int = 0,
         var lastGoodPosB: Int = 0,
+        // Movement detection
+        var prevPosLeft: Double = 0.0,
+        var prevPosRight: Double = 0.0,
+        var prevPosInitialized: Boolean = false,
         // Auto-stop detection
         var bottomHoldSince: Long? = null,
         // Debug logging throttle
@@ -162,8 +216,18 @@ class VitruvianDeviceManagerImpl(
         // Behavior flags
         var stopAtLastTopRep: Boolean = false,
         // Preparation
-        var lastPreparedAtMillis: Long = 0L
+        var lastPreparedAtMillis: Long = 0L,
+        // Force metrics accumulation
+        var upForceSum: Double = 0.0,
+        var upForceCount: Long = 0,
+        var downForceSum: Double = 0.0,
+        var downForceCount: Long = 0,
+        var maxUpForce: Double = 0.0,
+        var maxDownForce: Double = 0.0,
+        var currentPhase: Phase? = null
     )
+
+    private enum class Phase { UP, DOWN }
 
     private val sessions = mutableMapOf<String, WorkoutSession>()
     private fun sessionFor(device: Peripheral): WorkoutSession =
@@ -232,6 +296,18 @@ class VitruvianDeviceManagerImpl(
         session.halfRepNotifications = 0
         session.calibrationRepsCompleted = 0
         session.stopAtLastTopRep = stopAtLastTopRep
+        // Reset force metrics
+        session.upForceSum = 0.0
+        session.upForceCount = 0
+        session.downForceSum = 0.0
+        session.downForceCount = 0
+        session.maxUpForce = 0.0
+        session.maxDownForce = 0.0
+        session.currentPhase = null
+        // Reset movement detection so first tick doesn't count as movement by accident
+        session.prevPosInitialized = false
+        session.prevPosLeft = 0.0
+        session.prevPosRight = 0.0
         session.state.value = VitruvianDeviceManager.WorkoutState(
             calibratingRepsCompleted = session.calibrationRepsCompleted,
             maxReps = maxReps,
@@ -270,6 +346,10 @@ class VitruvianDeviceManagerImpl(
                             // Count calibration rep when TOP is reached
                             session.calibrationRepsCompleted += 1
                             session.state.value = curr.copy(calibratingRepsCompleted = session.calibrationRepsCompleted)
+                            // After finishing calibration at TOP, next movement will be DOWN
+                            if (session.calibrationRepsCompleted >= CALIBRATION_REPS) {
+                                session.currentPhase = Phase.DOWN
+                            }
                         }
                         // Do not count reps during calibration
                         return@collect
@@ -278,9 +358,13 @@ class VitruvianDeviceManagerImpl(
                     if (isUpwardCompletion) {
                         // Top reached -> increment upward counter (shown to user)
                         session.upwardReps += 1
+                        // Switch to DOWN phase after reaching the top
+                        session.currentPhase = Phase.DOWN
                     } else {
                         // Bottom reached -> increment downward counter and check for auto-stop
                         session.downwardReps += 1
+                        // Switch to UP phase after reaching the bottom
+                        session.currentPhase = Phase.UP
                     }
 
                     val updated = curr.copy(
@@ -458,6 +542,9 @@ class VitruvianDeviceManagerImpl(
 
         // Throttle for debug logs (ms)
         private const val POSITION_LOG_THROTTLE_MS: Long = 1000L
+
+        // Movement detection threshold (sum of left+right normalized deltas per tick)
+        private const val MOVEMENT_DELTA_THRESHOLD: Double = 0.003
 
         private const val AUTO_STOP_HOLD_MS: Long = 5_000L
         private const val BOTTOM_POS_THRESHOLD: Double = 0.1
