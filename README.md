@@ -8,7 +8,7 @@ any connectivity.
 At the moment only an apk download is available. Publishing to Google Play is too risky for me due
 to legal reasons.
 
-You can find the latest release here: TODO
+You can find the latest release here: https://github.com/sunilson/just-lift/releases
 
 ## Other modes
 
