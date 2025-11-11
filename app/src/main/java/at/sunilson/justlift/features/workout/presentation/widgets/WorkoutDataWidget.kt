@@ -3,6 +3,8 @@ package at.sunilson.justlift.features.workout.presentation.widgets
 import android.graphics.Paint
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,13 +41,21 @@ fun WorkoutDataWidget(
     machineState: VitruvianDeviceManager.MachineState
 ) {
     val animatedCablePositionLeft by animateFloatAsState(
-        targetValue = machineState.positionCableLeft.toFloat(),
-        animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec,
+        targetValue = machineState.positionCableLeft.toFloat().coerceIn(0f, 1f),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessHigh
+        ),
+        label = "LeftCable"
     )
 
     val animatedCablePositionRight by animateFloatAsState(
-        targetValue = machineState.positionCableRight.toFloat(),
-        animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec,
+        targetValue = machineState.positionCableRight.toFloat().coerceIn(0f, 1f),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessHigh
+        ),
+        label = "RightCable"
     )
 
     Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {

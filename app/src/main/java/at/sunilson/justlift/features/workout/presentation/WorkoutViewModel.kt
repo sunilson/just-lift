@@ -165,7 +165,17 @@ class WorkoutViewModel(
                         }
                     }
                     lastWorkoutState = workoutState
-                    _state.update { state -> state.copy(workoutState = workoutState) }
+                    _state.update { state ->
+                        val updatedPrevious = when {
+                            // Transition from active -> paused/stopped: keep the last non-null snapshot
+                            prev != null && workoutState == null -> prev
+                            else -> state.previousWorkoutState
+                        }
+                        state.copy(
+                            workoutState = workoutState,
+                            previousWorkoutState = updatedPrevious
+                        )
+                    }
                 }
         }
     }
@@ -356,6 +366,7 @@ class WorkoutViewModel(
         val connectedPeripheralState: com.juul.kable.State = com.juul.kable.State.Disconnected(),
         val availablePeripherals: ImmutableList<Peripheral> = persistentListOf(),
         val workoutState: VitruvianDeviceManager.WorkoutState? = null,
+        val previousWorkoutState: VitruvianDeviceManager.WorkoutState? = null,
         val machineState: VitruvianDeviceManager.MachineState? = null,
         val useNoRepLimit: Boolean = true,
         val echoDifficulty: VitruvianDeviceManager.EchoDifficulty = VitruvianDeviceManager.EchoDifficulty.HARDEST,

@@ -20,7 +20,8 @@ Could be done as well, as all used libraries would support Multiplatform. If eno
 I might look into it.
 
 ## TODO
-
+- [ ] Pause timer
+- [ ] Show previous workout statistics
 - [ ] Static Analysis
     - [ ] Add detekt
     - [ ] Add ktlint
