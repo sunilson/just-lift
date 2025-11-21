@@ -171,9 +171,17 @@ class WorkoutViewModel(
                             prev != null && workoutState == null -> prev
                             else -> state.previousWorkoutState
                         }
+                        val updatedPauseStart = when {
+                            // Set pause start timestamp exactly when we transition to paused (active -> null)
+                            prev != null && workoutState == null -> System.currentTimeMillis()
+                            // Clear timestamp when a workout starts/resumes (null -> non-null)
+                            prev == null && workoutState != null -> null
+                            else -> state.pauseStartTimestamp
+                        }
                         state.copy(
                             workoutState = workoutState,
-                            previousWorkoutState = updatedPrevious
+                            previousWorkoutState = updatedPrevious,
+                            pauseStartTimestamp = updatedPauseStart
                         )
                     }
                 }
@@ -335,7 +343,8 @@ class WorkoutViewModel(
 
     private suspend fun tryStartWorkout() {
         try {
-            _state.update { it.copy(loading = true) }
+            // Clear any pause timestamp as we are starting/resuming a workout
+            _state.update { it.copy(loading = true, pauseStartTimestamp = null) }
             vitruvianDeviceManager.startWorkout(
                 device = _connectedPeripheral.value ?: return,
                 difficulty = state.value.echoDifficulty,
@@ -367,6 +376,8 @@ class WorkoutViewModel(
         val availablePeripherals: ImmutableList<Peripheral> = persistentListOf(),
         val workoutState: VitruvianDeviceManager.WorkoutState? = null,
         val previousWorkoutState: VitruvianDeviceManager.WorkoutState? = null,
+        // Timestamp when pause started (ms since epoch). Null initially and cleared on workout start.
+        val pauseStartTimestamp: Long? = null,
         val machineState: VitruvianDeviceManager.MachineState? = null,
         val useNoRepLimit: Boolean = true,
         val echoDifficulty: VitruvianDeviceManager.EchoDifficulty = VitruvianDeviceManager.EchoDifficulty.HARDEST,

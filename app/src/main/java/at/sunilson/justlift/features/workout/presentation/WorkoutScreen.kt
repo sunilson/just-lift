@@ -23,14 +23,20 @@ import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager
 import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager.EchoDifficulty
 import at.sunilson.justlift.features.workout.presentation.preview.FakePeripheral
 import at.sunilson.justlift.features.workout.presentation.widgets.ConnectionWidget
+import at.sunilson.justlift.features.workout.presentation.widgets.PauseTimerWidget
 import at.sunilson.justlift.features.workout.presentation.widgets.WorkoutConfigurationWidget
 import at.sunilson.justlift.features.workout.presentation.widgets.WorkoutDataWidget
 import at.sunilson.justlift.shared.presentation.PreviewLightDarkDevices
@@ -41,6 +47,9 @@ import com.juul.kable.State
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
@@ -123,6 +132,11 @@ fun WorkoutScreen(
                         "Lift and hold to start workout",
                         style = MaterialTheme.typography.headlineMedium,
                     )
+                    // Show pause timer (if currently paused) slightly smaller below the instruction
+                    state.pauseStartTimestamp?.let { pauseStart ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        PauseTimerWidget(pauseStartTimestamp = pauseStart)
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))

@@ -21,6 +21,7 @@ I might look into it.
 
 ## TODO
 - [ ] Pause timer
+- [ ] Increase text size for better readability
 - [ ] Show previous workout statistics
 - [ ] Static Analysis
     - [ ] Add detekt

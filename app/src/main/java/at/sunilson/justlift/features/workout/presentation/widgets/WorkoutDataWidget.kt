@@ -40,24 +40,6 @@ fun WorkoutDataWidget(
     workoutState: VitruvianDeviceManager.WorkoutState,
     machineState: VitruvianDeviceManager.MachineState
 ) {
-    val animatedCablePositionLeft by animateFloatAsState(
-        targetValue = machineState.positionCableLeft.toFloat().coerceIn(0f, 1f),
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessHigh
-        ),
-        label = "LeftCable"
-    )
-
-    val animatedCablePositionRight by animateFloatAsState(
-        targetValue = machineState.positionCableRight.toFloat().coerceIn(0f, 1f),
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessHigh
-        ),
-        label = "RightCable"
-    )
-
     Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(modifier = Modifier.height(16.dp))
         AnimatedVisibility(workoutState.autoStopInSeconds != null) {
@@ -106,7 +88,7 @@ fun WorkoutDataWidget(
                 modifier = Modifier
                     .weight(1f)
                     .height(24.dp),
-                progress = { animatedCablePositionLeft })
+                progress = { machineState.positionCableLeft.toFloat() })
         }
         Spacer(modifier = Modifier.height(16.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -116,7 +98,7 @@ fun WorkoutDataWidget(
                 modifier = Modifier
                     .weight(1f)
                     .height(24.dp),
-                progress = { animatedCablePositionRight })
+                progress = { machineState.positionCableRight.toFloat() })
         }
 
     }
