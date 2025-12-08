@@ -20,6 +20,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,67 +39,77 @@ import kotlin.time.toDuration
 fun WorkoutDataWidget(
     modifier: Modifier = Modifier,
     workoutState: VitruvianDeviceManager.WorkoutState,
-    machineState: VitruvianDeviceManager.MachineState
+    machineState: VitruvianDeviceManager.MachineState?
 ) {
     Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Spacer(modifier = Modifier.height(16.dp))
-        AnimatedVisibility(workoutState.autoStopInSeconds != null) {
-            Column {
-                Text("Auto stop in ${workoutState.autoStopInSeconds} seconds", style = MaterialTheme.typography.headlineMedium)
-                Spacer(modifier = Modifier.height(32.dp))
-            }
-        }
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                if (workoutState.calibratingRepsCompleted < 3) {
-                    Text("Calibration Repetitions: ${workoutState.calibratingRepsCompleted}")
-                } else {
-
-                    Text("Repetitions: ${workoutState.upwardRepetitionsCompleted}")
+        // Provide a larger default text style within this widget for better readability
+        ProvideTextStyle(MaterialTheme.typography.titleLarge) {
+            Spacer(modifier = Modifier.height(16.dp))
+            // Show auto-stop countdown only for the live workout (not for previous set rendering)
+            AnimatedVisibility(workoutState.autoStopInSeconds != null && machineState != null) {
+                Column {
+                    Text(
+                        "Auto stop in ${workoutState.autoStopInSeconds} seconds",
+                        style = MaterialTheme.typography.displaySmall
+                    )
+                    Spacer(modifier = Modifier.height(32.dp))
                 }
             }
-        }
-        Spacer(modifier = Modifier.height(32.dp))
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Average Upward Force: ${"%.1f".format(workoutState.averageUpwardForce)}kg")
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Average Downward Force: ${"%.1f".format(workoutState.averageDownwardForce)}kg")
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Max Upward Force: ${"%.1f".format(workoutState.maxUpwardForce)}kg")
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Max Downward Force: ${"%.1f".format(workoutState.maxDownwardForce)}kg")
-            }
-        }
 
-        Spacer(modifier = Modifier.height(32.dp))
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Left cable force: ${machineState.forceLeftCable}kg")
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Right cable force: ${machineState.forceRightCable}kg")
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    if (workoutState.calibratingRepsCompleted < 3) {
+                        Text("Calibration Repetitions: ${workoutState.calibratingRepsCompleted}")
+                    } else {
+
+                        Text("Repetitions: ${workoutState.upwardRepetitionsCompleted}")
+                    }
+                }
             }
-        }
-        Spacer(modifier = Modifier.height(32.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("L", style = MaterialTheme.typography.headlineLarge)
-            Spacer(modifier = Modifier.width(16.dp))
-            LinearProgressIndicator(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(24.dp),
-                progress = { machineState.positionCableLeft.toFloat() })
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("R", style = MaterialTheme.typography.headlineLarge)
-            Spacer(modifier = Modifier.width(16.dp))
-            LinearProgressIndicator(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(24.dp),
-                progress = { machineState.positionCableRight.toFloat() })
+            Spacer(modifier = Modifier.height(32.dp))
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Average Upward Force: ${"%.1f".format(workoutState.averageUpwardForce)}kg")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Average Downward Force: ${"%.1f".format(workoutState.averageDownwardForce)}kg")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Max Upward Force: ${"%.1f".format(workoutState.maxUpwardForce)}kg")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Max Downward Force: ${"%.1f".format(workoutState.maxDownwardForce)}kg")
+                }
+            }
+
+            // Live machine/cable information is only shown when available
+            if (machineState != null) {
+                Spacer(modifier = Modifier.height(32.dp))
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Left cable force: ${machineState.forceLeftCable}kg")
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Right cable force: ${machineState.forceRightCable}kg")
+                    }
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("L", style = MaterialTheme.typography.displaySmall)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(32.dp),
+                        progress = { machineState.positionCableLeft.toFloat() })
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("R", style = MaterialTheme.typography.displaySmall)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(32.dp),
+                        progress = { machineState.positionCableRight.toFloat() })
+                }
+            }
         }
 
     }

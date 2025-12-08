@@ -1,0 +1,89 @@
+Project: Just Lift (Android, Jetpack Compose, Kotlin)
+Last updated: 2025-11-21 18:29 local
+
+Overview
+- Purpose: Native Android app to control the Vitruvian Trainer in "Just Lift Echo" mode without the official app.
+- Platform: Android-only (for now). Potential KMP in future, but don’t introduce multiplatform unless explicitly requested.
+- Tech stack: Kotlin, Jetpack Compose, Coroutines/Flows, AndroidX. No DI framework unless it already exists in the codebase.
+
+Principles for AI changes
+- Keep edits minimal, scoped, and reversible. Prefer the smallest change that solves the problem.
+- Follow the project’s existing patterns, naming, and file structure (packages under `at.sunilson.justlift`).
+- Ask for clarification when requirements or protocol details are uncertain, especially around BLE/device communication.
+- Avoid adding heavy dependencies or new frameworks without explicit approval.
+- Maintain user safety: no actions that can damage the device or user; treat resistance/weight settings conservatively and respect limits.
+
+Coding style & conventions
+- Language: Kotlin. Use idiomatic Kotlin and standard Android/Compose patterns.
+- Compose:
+  - Hoist state and make composables stateless where possible.
+  - Use `remember`, `rememberSaveable`, and `derivedStateOf` appropriately to avoid unnecessary recompositions.
+  - Keep UI functions small and focused; prefer splitting complex UI into smaller composables.
+  - Use Material components and typography/colors from the existing theme.
+- Coroutines/Flows:
+  - Avoid blocking the main thread. Use `Dispatchers.IO` or appropriate scopes for I/O and BLE.
+  - Prefer cold Flows for streams; expose immutable Flow to UI, collect in ViewModel/UI with lifecycle awareness.
+- Nullability & errors: Prefer explicit sealed results or `Result` helpers. Handle errors gracefully and surface meaningful messages to UI.
+- Strings & i18n: Place user-facing strings in resources (`res/values/strings.xml`). Avoid hardcoded strings in code.
+- Logging:
+  - Do not log PII or sensitive BLE payloads by default. If logging is needed for debugging, guard it behind a debug flag and scrub sensitive data.
+  - Prefer standard Android logging utilities. Keep logs concise.
+- Testing: Where feasible, add unit tests for logic-heavy code. For UI, prefer preview sanity and simple screenshot tests if already set up.
+- Lint/format: Follow ktlint/detekt conventions if present. Otherwise, keep formatting consistent with the existing codebase.
+
+Android specifics
+- Permissions: Request and check Bluetooth/location permissions as needed. Handle denial gracefully and communicate clearly.
+- Performance:
+  - Avoid excessive allocations or tight loops on the main thread.
+  - Use `LaunchedEffect` and `remember` correctly in Compose; avoid side-effects during composition.
+- Accessibility:
+  - Use content descriptions and ensure sufficient contrast.
+  - Respect user font scale settings; prefer `sp` for text and scalable layout where possible.
+
+BLE/Device communication
+- Do not modify the Vitruvian protocol without explicit confirmation or documentation.
+- Timeouts, retries, and reconnection logic should be conservative and cancellable.
+- Ensure resource cleanup: close GATT connections, cancel coroutines, clear callbacks.
+
+Structure & organization
+- Keep files in their existing feature packages (e.g., `features/workout/...`).
+- ViewModels:
+  - Business logic in ViewModel or data layer; UI layer should remain thin.
+  - Expose immutable state to UI; avoid mutable state exposures.
+- Data layer:
+  - Prefer interfaces for device managers and separate implementation files.
+
+Dependency management
+- Do not introduce new libraries unless strictly necessary and approved.
+- Favor AndroidX/Jetpack and Kotlin stdlib for common needs.
+
+Security & privacy
+- Store only what is necessary (e.g., last used device id) and allow clearing it.
+- Avoid persisting raw BLE payloads; if unavoidable for debugging, encrypt or obfuscate and make it opt-in.
+
+Error handling & UX
+- Fail visibly and informatively; provide retry paths.
+- Prefer non-blocking toasts/snackbars for transient errors, dialogs for critical confirmations.
+
+Build, run, and tests
+- Build: `./gradlew assembleDebug`
+- Run unit tests: `./gradlew test`
+- Run instrumentation tests (if any): `./gradlew connectedAndroidTest`
+- Screenshot tests (if configured): use the existing Gradle tasks or IDE run configs.
+- Do not run long build/test suites unless necessary for the change or explicitly requested.
+
+Commit & PR guidelines
+- Use Conventional Commits style where possible:
+  - feat:, fix:, refactor:, docs:, test:, chore:, build:, ci:
+- Keep commits small and descriptive. Reference issues when available.
+
+When to ask for guidance
+- Any change to BLE protocol, security/privacy-relevant behavior, or adding new dependencies/frameworks.
+- Ambiguity in requirements, UX flows, or device safety implications.
+
+Default language & tone
+- Communicate in English. Be concise, actionable, and include short justifications for non-obvious decisions.
+
+Non-goals unless requested
+- Adding other workout modes, iOS target, or KMP refactor.
+- Large-scale architectural rewrites or replacing Compose/AndroidX patterns.

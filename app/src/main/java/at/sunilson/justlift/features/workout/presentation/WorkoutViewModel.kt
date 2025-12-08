@@ -57,6 +57,13 @@ class WorkoutViewModel(
                 _state.update { it.copy(loading = true) }
                 _connectedPeripheral.value?.disconnect()
                 device.connect()
+                // Always stop any possibly running/stale workout right after connecting
+                // to ensure the device and our UI start from a clean state.
+                try {
+                    vitruvianDeviceManager.stopWorkout(device)
+                } catch (_: Exception) {
+                    // Best-effort cleanup; ignore if stop fails
+                }
                 _connectedPeripheral.value = device
             } catch (error: Exception) {
                 Log.e("WorkoutViewModel", "Error connecting to device", error)

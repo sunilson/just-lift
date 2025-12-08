@@ -144,6 +144,21 @@ fun WorkoutScreen(
                     Button(onClick = { onDisconnectClicked() }) {
                         Text("Disconnect Device")
                     }
+
+                    // Show previous set data when available (after finishing a set)
+                    state.previousWorkoutState?.let { previous ->
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            text = "Previous set",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        WorkoutDataWidget(
+                            workoutState = previous,
+                            machineState = null
+                        )
+                    }
                 }
                 if (isConnected && isWorkoutInProgress) {
                     Button(onClick = { onStopWorkoutClicked() }) { Text("Stop Workout") }
