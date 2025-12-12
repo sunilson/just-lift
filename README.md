@@ -19,6 +19,9 @@ At the moment I have no plans to implement other modes like "Guided Workouts" or
 Could be done as well, as all used libraries would support Multiplatform. If enough interest exists
 I might look into it.
 
+## Junie guidelines
+- The task is not finished before the build succeeds. Always ensure the project builds successfully (e.g., `./gradlew assemble` or Android Studio Build) before considering a task complete.
+
 ## TODO
 - [ ] Pause timer
 - [ ] Increase text size for better readability

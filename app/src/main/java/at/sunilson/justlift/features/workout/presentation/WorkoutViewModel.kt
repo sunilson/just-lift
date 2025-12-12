@@ -4,6 +4,9 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager
+import at.sunilson.justlift.features.workout.data.WorkoutSettings
+import at.sunilson.justlift.features.workout.data.WorkoutSettingsRepository
+import at.sunilson.justlift.features.workout.data.SavedDevice
 import at.sunilson.justlift.shared.audio.AppSoundPlayer
 import com.juul.kable.Peripheral
 import kotlinx.collections.immutable.ImmutableList
@@ -24,10 +27,11 @@ import kotlin.math.abs
 import kotlin.math.ceil
 
 @KoinViewModel
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, com.juul.kable.ExperimentalApi::class)
 class WorkoutViewModel(
     private val vitruvianDeviceManager: VitruvianDeviceManager,
-    private val soundPlayer: AppSoundPlayer
+    private val soundPlayer: AppSoundPlayer,
+    private val workoutSettingsRepository: WorkoutSettingsRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(State())
@@ -49,6 +53,8 @@ class WorkoutViewModel(
         observeAvailablePeripherals()
         observeWorkoutState()
         observeMachineState()
+        observeSavedDevice()
+        observeAutoConnect()
     }
 
     fun onDeviceSelected(device: Peripheral) {
@@ -65,6 +71,22 @@ class WorkoutViewModel(
                     // Best-effort cleanup; ignore if stop fails
                 }
                 _connectedPeripheral.value = device
+
+                // Persist last device for future auto-connects
+                runCatching { workoutSettingsRepository.setLastDevice(device.identifier, device.name) }
+
+                // Restore previously saved defaults once upon a fresh connection
+                runCatching { workoutSettingsRepository.get() }
+                    .onSuccess { settings ->
+                        _state.update { s ->
+                            s.copy(
+                                echoDifficulty = settings.echoDifficulty,
+                                useNoRepLimit = settings.useNoRepLimit,
+                                repetitionsSliderValue = settings.repetitions,
+                                eccentricSliderValue = settings.eccentricPercentage
+                            )
+                        }
+                    }
             } catch (error: Exception) {
                 Log.e("WorkoutViewModel", "Error connecting to device", error)
             } finally {
@@ -106,20 +128,44 @@ class WorkoutViewModel(
         }
     }
 
+    fun onClearSavedDeviceClicked() {
+        viewModelScope.launch {
+            workoutSettingsRepository.clearLastDevice()
+        }
+    }
+
     fun onEccentricSliderValueChange(value: Float) {
         _state.update { it.copy(eccentricSliderValue = value) }
+        persistCurrentSettings()
     }
 
     fun onRepetitionsSliderValueChange(value: Float) {
         _state.update { it.copy(repetitionsSliderValue = value.toInt()) }
+        persistCurrentSettings()
     }
 
     fun onUseNoRepLimitChange(useNoRepLimit: Boolean) {
         _state.update { it.copy(useNoRepLimit = useNoRepLimit) }
+        persistCurrentSettings()
     }
 
     fun onEchoDifficultyChange(difficulty: VitruvianDeviceManager.EchoDifficulty) {
         _state.update { it.copy(echoDifficulty = difficulty) }
+        persistCurrentSettings()
+    }
+
+    private fun persistCurrentSettings() {
+        val s = state.value
+        viewModelScope.launch {
+            workoutSettingsRepository.save(
+                WorkoutSettings(
+                    echoDifficulty = s.echoDifficulty,
+                    useNoRepLimit = s.useNoRepLimit,
+                    repetitions = s.repetitionsSliderValue,
+                    eccentricPercentage = s.eccentricSliderValue
+                )
+            )
+        }
     }
 
     private fun observeConnectedPeripheral() {
@@ -150,6 +196,52 @@ class WorkoutViewModel(
                     }
                 }
                 .collect { peripherals -> _state.update { state -> state.copy(availablePeripherals = peripherals) } }
+        }
+    }
+
+    private fun observeSavedDevice() {
+        viewModelScope.launch {
+            workoutSettingsRepository.savedDeviceFlow.collect { saved ->
+                _state.update { it.copy(savedDevice = saved) }
+                if (saved == null) {
+                    // Cancel any auto-connect in UI
+                    _state.update { it.copy(isAutoConnecting = false) }
+                    autoConnectInProgress = false
+                }
+            }
+        }
+    }
+
+    private var autoConnectInProgress: Boolean = false
+    private fun observeAutoConnect() {
+        viewModelScope.launch {
+            this@WorkoutViewModel._connectedPeripheral
+                .flatMapLatest { it?.state ?: flowOf(com.juul.kable.State.Disconnected()) }
+                .collect { connState ->
+                    if (connState is com.juul.kable.State.Connected) {
+                        _state.update { it.copy(isAutoConnecting = false) }
+                        autoConnectInProgress = false
+                    }
+                }
+        }
+
+        viewModelScope.launch {
+            // When disconnected and saved device exists, try to connect to it once seen in scan
+            this@WorkoutViewModel._connectedPeripheral
+                .flatMapLatest { it?.state ?: flowOf(com.juul.kable.State.Disconnected()) }
+                .flatMapLatest { st ->
+                    if (st is com.juul.kable.State.Disconnected) vitruvianDeviceManager.getScannedDevicesFlow() else flowOf(emptyList())
+                }
+                .collect { scanned ->
+                    val target = state.value.savedDevice ?: return@collect
+                    if (autoConnectInProgress) return@collect
+                    val match = scanned.firstOrNull { it.identifier == target.id }
+                    if (match != null) {
+                        autoConnectInProgress = true
+                        _state.update { it.copy(isAutoConnecting = true) }
+                        onDeviceSelected(match)
+                    }
+                }
         }
     }
 
@@ -390,7 +482,9 @@ class WorkoutViewModel(
         val echoDifficulty: VitruvianDeviceManager.EchoDifficulty = VitruvianDeviceManager.EchoDifficulty.HARDEST,
         val eccentricSliderValue: Float = 100.0f,
         val repetitionsSliderValue: Int = 8,
-        val autoStartInSeconds: Int? = null
+        val autoStartInSeconds: Int? = null,
+        val savedDevice: SavedDevice? = null,
+        val isAutoConnecting: Boolean = false
     )
 
     companion object {

@@ -26,6 +26,7 @@ fun WorkoutDestination(
         onEchoDifficultyChange = viewModel::onEchoDifficultyChange,
         onStartWorkoutClicked = viewModel::onStartWorkoutClicked,
         onStopWorkoutClicked = viewModel::onStopWorkoutClicked,
-        onDisconnectClicked = viewModel::onDisconnectClicked
+        onDisconnectClicked = viewModel::onDisconnectClicked,
+        onClearSavedDeviceClicked = viewModel::onClearSavedDeviceClicked
     )
 }

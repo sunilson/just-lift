@@ -16,8 +16,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
@@ -26,6 +29,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,11 +48,14 @@ import at.sunilson.justlift.shared.presentation.ScreenPreview
 import com.juul.kable.ExperimentalApi
 import com.juul.kable.Peripheral
 import com.juul.kable.State
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Bluetooth
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
@@ -64,15 +71,17 @@ fun WorkoutScreen(
     onEchoDifficultyChange: (EchoDifficulty) -> Unit = {},
     onStartWorkoutClicked: () -> Unit = {},
     onStopWorkoutClicked: () -> Unit = {},
-    onDisconnectClicked: () -> Unit = {}
+    onDisconnectClicked: () -> Unit = {},
+    onClearSavedDeviceClicked: () -> Unit = {}
 ) {
     val scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState = rememberStandardBottomSheetState(skipHiddenState = false))
     val isWorkoutInProgress = state.workoutState != null && state.machineState != null
     val isConnected = state.connectedPeripheralState is State.Connected
     val starting = state.autoStartInSeconds != null
-
-    LaunchedEffect(state.connectedPeripheralState, state.availablePeripherals) {
-        if (state.connectedPeripheralState is State.Connected && state.availablePeripherals.isEmpty()) {
+    val scope = rememberCoroutineScope()
+    // Show the sheet when disconnected, hide when connected
+    LaunchedEffect(isConnected) {
+        if (isConnected) {
             scaffoldState.bottomSheetState.hide()
         } else {
             scaffoldState.bottomSheetState.expand()
@@ -83,10 +92,25 @@ fun WorkoutScreen(
         scaffoldState = scaffoldState,
         sheetDragHandle = null,
         sheetSwipeEnabled = false,
+        topBar = {
+            TopAppBar(
+                title = { Text("Just Lift") },
+                actions = {
+                    IconButton(onClick = { scope.launch { scaffoldState.bottomSheetState.expand() } }) {
+                        Icon(imageVector = Icons.Outlined.Bluetooth, contentDescription = "Connect")
+                    }
+                }
+            )
+        },
         sheetContent = {
             ConnectionWidget(
                 availableDevices = state.availablePeripherals.toList(),
+                connectedPeripheral = state.connectedPeripheral,
+                isAutoConnecting = state.isAutoConnecting,
+                savedDeviceName = state.savedDevice?.name ?: state.savedDevice?.id,
                 onDeviceSelected = onDeviceSelected,
+                onClearSavedDevice = onClearSavedDeviceClicked,
+                onDisconnectClicked = onDisconnectClicked
             )
         }
     ) {
@@ -98,14 +122,10 @@ fun WorkoutScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp)
+                    .padding(horizontal = 16.dp, vertical = 16.dp)
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(style = MaterialTheme.typography.headlineLarge, text = "Just Lift")
-
-                Spacer(modifier = Modifier.height(16.dp))
-
                 if (starting) {
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("Auto start in seconds: ${state.autoStartInSeconds}")

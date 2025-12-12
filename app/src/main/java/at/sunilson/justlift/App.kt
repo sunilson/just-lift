@@ -2,6 +2,7 @@ package at.sunilson.justlift
 
 import android.Manifest
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -30,7 +31,9 @@ fun JustLiftApp() {
         Permissions
     }
 
-    Scaffold {
+    // Disable outer Scaffold's default window insets to avoid double top padding
+    // when inner screens (like Workout) provide their own top bars/insets.
+    Scaffold(contentWindowInsets = WindowInsets(0)) {
         Box(Modifier.padding(it)) {
             NavHost(
                 navController = navController,

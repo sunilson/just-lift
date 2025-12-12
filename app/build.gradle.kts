@@ -65,6 +65,8 @@ dependencies {
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
     implementation(libs.androidx.compose.ui.navigation)
     implementation(libs.androidx.compose.material.icons.extended)
+    // Use direct dependency to avoid catalog resolution issues in some environments
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation(libs.nordicsemi.ble)
     implementation(libs.kable.core)
     implementation(libs.kable.default.permissions)
