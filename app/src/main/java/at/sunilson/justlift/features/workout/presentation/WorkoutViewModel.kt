@@ -12,6 +12,7 @@ import com.juul.kable.Peripheral
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryEntry
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +26,7 @@ import kotlinx.coroutines.launch
 import org.koin.android.annotation.KoinViewModel
 import kotlin.math.abs
 import kotlin.math.ceil
+// (duplicates removed)
 
 @KoinViewModel
 @OptIn(ExperimentalCoroutinesApi::class, com.juul.kable.ExperimentalApi::class)
@@ -270,6 +272,17 @@ class WorkoutViewModel(
                             prev != null && workoutState == null -> prev
                             else -> state.previousWorkoutState
                         }
+                        // Append to in-memory history when a workout just finished
+                        val updatedHistory: ImmutableList<WorkoutHistoryEntry> = when {
+                            prev != null && workoutState == null -> {
+                                val entry = WorkoutHistoryEntry(
+                                    workoutState = prev,
+                                    timestampMillis = System.currentTimeMillis()
+                                )
+                                (listOf(entry) + state.history).toImmutableList()
+                            }
+                            else -> state.history
+                        }
                         val updatedPauseStart = when {
                             // Set pause start timestamp exactly when we transition to paused (active -> null)
                             prev != null && workoutState == null -> System.currentTimeMillis()
@@ -280,7 +293,8 @@ class WorkoutViewModel(
                         state.copy(
                             workoutState = workoutState,
                             previousWorkoutState = updatedPrevious,
-                            pauseStartTimestamp = updatedPauseStart
+                            pauseStartTimestamp = updatedPauseStart,
+                            history = updatedHistory
                         )
                     }
                 }
@@ -484,8 +498,20 @@ class WorkoutViewModel(
         val repetitionsSliderValue: Int = 8,
         val autoStartInSeconds: Int? = null,
         val savedDevice: SavedDevice? = null,
-        val isAutoConnecting: Boolean = false
+        val isAutoConnecting: Boolean = false,
+        // In-memory workout history for the app session
+        val history: ImmutableList<WorkoutHistoryEntry> = persistentListOf(),
+        // UI flag: whether history overlay is visible
+        val showHistory: Boolean = false
     )
+
+    fun onHistoryClicked() {
+        _state.update { it.copy(showHistory = true) }
+    }
+
+    fun onDismissHistoryClicked() {
+        _state.update { it.copy(showHistory = false) }
+    }
 
     companion object {
         // Total hold time before auto-start

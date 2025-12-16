@@ -1,14 +1,18 @@
 package at.sunilson.justlift.features.workout.presentation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -50,6 +54,8 @@ import com.juul.kable.Peripheral
 import com.juul.kable.State
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bluetooth
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Close
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +65,8 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
+import at.sunilson.justlift.features.workout.presentation.history.HistoryOverlay
+import androidx.compose.ui.zIndex
 
 @OptIn(ExperimentalApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -72,7 +80,9 @@ fun WorkoutScreen(
     onStartWorkoutClicked: () -> Unit = {},
     onStopWorkoutClicked: () -> Unit = {},
     onDisconnectClicked: () -> Unit = {},
-    onClearSavedDeviceClicked: () -> Unit = {}
+    onClearSavedDeviceClicked: () -> Unit = {},
+    onHistoryClicked: () -> Unit = {},
+    onDismissHistoryClicked: () -> Unit = {}
 ) {
     val scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState = rememberStandardBottomSheetState(skipHiddenState = false))
     val isWorkoutInProgress = state.workoutState != null && state.machineState != null
@@ -88,14 +98,24 @@ fun WorkoutScreen(
         }
     }
 
+    // Ensure the bottom sheet does not cover the history overlay
+    LaunchedEffect(state.showHistory) {
+        if (state.showHistory) {
+            scaffoldState.bottomSheetState.hide()
+        }
+    }
+
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
         sheetDragHandle = null,
-        sheetSwipeEnabled = false,
+        sheetSwipeEnabled = isConnected,
         topBar = {
             TopAppBar(
                 title = { Text("Just Lift") },
                 actions = {
+                    IconButton(onClick = onHistoryClicked) {
+                        Icon(imageVector = androidx.compose.material.icons.Icons.Outlined.History, contentDescription = "History")
+                    }
                     IconButton(onClick = { scope.launch { scaffoldState.bottomSheetState.expand() } }) {
                         Icon(imageVector = Icons.Outlined.Bluetooth, contentDescription = "Connect")
                     }
@@ -103,15 +123,40 @@ fun WorkoutScreen(
             )
         },
         sheetContent = {
-            ConnectionWidget(
-                availableDevices = state.availablePeripherals.toList(),
-                connectedPeripheral = state.connectedPeripheral,
-                isAutoConnecting = state.isAutoConnecting,
-                savedDeviceName = state.savedDevice?.name ?: state.savedDevice?.id,
-                onDeviceSelected = onDeviceSelected,
-                onClearSavedDevice = onClearSavedDeviceClicked,
-                onDisconnectClicked = onDisconnectClicked
-            )
+            // Show a close button when already connected so the sheet can be dismissed
+            if (isConnected) {
+                Box(Modifier.fillMaxWidth()) {
+                    IconButton(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp),
+                        onClick = { scope.launch { scaffoldState.bottomSheetState.hide() } }
+                    ) {
+                        Icon(imageVector = Icons.Outlined.Close, contentDescription = "Close")
+                    }
+                    Column(Modifier.padding(top = 40.dp)) {
+                        ConnectionWidget(
+                            availableDevices = state.availablePeripherals.toList(),
+                            connectedPeripheral = state.connectedPeripheral,
+                            isAutoConnecting = state.isAutoConnecting,
+                            savedDeviceName = state.savedDevice?.name ?: state.savedDevice?.id,
+                            onDeviceSelected = onDeviceSelected,
+                            onClearSavedDevice = onClearSavedDeviceClicked,
+                            onDisconnectClicked = onDisconnectClicked
+                        )
+                    }
+                }
+            } else {
+                ConnectionWidget(
+                    availableDevices = state.availablePeripherals.toList(),
+                    connectedPeripheral = state.connectedPeripheral,
+                    isAutoConnecting = state.isAutoConnecting,
+                    savedDeviceName = state.savedDevice?.name ?: state.savedDevice?.id,
+                    onDeviceSelected = onDeviceSelected,
+                    onClearSavedDevice = onClearSavedDeviceClicked,
+                    onDisconnectClicked = onDisconnectClicked
+                )
+            }
         }
     ) {
         Box(
@@ -184,11 +229,35 @@ fun WorkoutScreen(
                     Button(onClick = { onStopWorkoutClicked() }) { Text("Stop Workout") }
                 }
             }
+
+            // History overlay with animated in/out from the bottom
+            AnimatedVisibility(
+                visible = state.showHistory,
+                enter = fadeIn(animationSpec = tween(150)) +
+                    slideInVertically(
+                        // Start just below the screen
+                        initialOffsetY = { fullHeight -> fullHeight },
+                        animationSpec = tween(250)
+                    ),
+                exit = fadeOut(animationSpec = tween(150)) +
+                    slideOutVertically(
+                        // Slide down off the screen
+                        targetOffsetY = { fullHeight -> fullHeight },
+                        animationSpec = tween(200)
+                    )
+            ) {
+                Box(modifier = Modifier.fillMaxSize().zIndex(1f)) {
+                    HistoryOverlay(
+                        history = state.history.toList(),
+                        onDismiss = onDismissHistoryClicked
+                    )
+                }
+            }
         }
         AnimatedVisibility(
             enter = fadeIn(),
             exit = fadeOut(),
-            visible = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded
+            visible = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded && !state.showHistory
         ) {
             Box(
                 modifier = Modifier
