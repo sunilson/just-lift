@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager
 import at.sunilson.justlift.features.workout.data.WorkoutSettings
 import at.sunilson.justlift.features.workout.data.WorkoutSettingsRepository
+import at.sunilson.justlift.features.workout.data.DifficultySettings
 import at.sunilson.justlift.features.workout.data.SavedDevice
 import at.sunilson.justlift.shared.audio.AppSoundPlayer
 import com.juul.kable.Peripheral
@@ -80,12 +81,14 @@ class WorkoutViewModel(
                 // Restore previously saved defaults once upon a fresh connection
                 runCatching { workoutSettingsRepository.get() }
                     .onSuccess { settings ->
+                        // Restore global settings and selected difficulty
                         _state.update { s ->
                             s.copy(
                                 echoDifficulty = settings.echoDifficulty,
                                 useNoRepLimit = settings.useNoRepLimit,
                                 repetitionsSliderValue = settings.repetitions,
-                                eccentricSliderValue = settings.eccentricPercentage
+                                eccentricSliderValue = settings.eccentricPercentage,
+                                difficultySheetSelection = settings.echoDifficulty
                             )
                         }
                     }
@@ -152,13 +155,15 @@ class WorkoutViewModel(
     }
 
     fun onEchoDifficultyChange(difficulty: VitruvianDeviceManager.EchoDifficulty) {
-        _state.update { it.copy(echoDifficulty = difficulty) }
+        _state.update { it.copy(echoDifficulty = difficulty, difficultySheetSelection = difficulty) }
+        // Persist selected difficulty alongside current global settings
         persistCurrentSettings()
     }
 
     private fun persistCurrentSettings() {
         val s = state.value
         viewModelScope.launch {
+            // Save last used selection for quick restore
             workoutSettingsRepository.save(
                 WorkoutSettings(
                     echoDifficulty = s.echoDifficulty,
@@ -502,7 +507,12 @@ class WorkoutViewModel(
         // In-memory workout history for the app session
         val history: ImmutableList<WorkoutHistoryEntry> = persistentListOf(),
         // UI flag: whether history overlay is visible
-        val showHistory: Boolean = false
+        val showHistory: Boolean = false,
+        // Difficulty settings editor UI (per-mode machine parameters)
+        val showDifficultySheet: Boolean = false,
+        val difficultySheetSelection: VitruvianDeviceManager.EchoDifficulty = echoDifficulty,
+        val difficultySheetGain: Float = 1.0f,
+        val difficultySheetCap: Float = 50.0f
     )
 
     fun onHistoryClicked() {
@@ -511,6 +521,81 @@ class WorkoutViewModel(
 
     fun onDismissHistoryClicked() {
         _state.update { it.copy(showHistory = false) }
+    }
+
+    // Difficulty settings bottom sheet events (tuning per-mode machine parameters)
+    fun onOpenDifficultySettings() {
+        // Initialize sheet selection from current difficulty and load its values
+        val currentDifficulty = state.value.echoDifficulty
+        viewModelScope.launch {
+            val params = runCatching { workoutSettingsRepository.getModeParameters(currentDifficulty) }
+                .getOrElse {
+                    // Fall back to EPIC max bounds or safe defaults if needed
+                    at.sunilson.justlift.features.workout.data.ModeParameters(gain = 1.0f, capKg = 50.0f)
+                }
+            _state.update {
+                it.copy(
+                    showDifficultySheet = true,
+                    difficultySheetSelection = currentDifficulty,
+                    difficultySheetGain = params.gain,
+                    difficultySheetCap = params.capKg
+                )
+            }
+        }
+    }
+
+    fun onDismissDifficultySettings() {
+        _state.update { it.copy(showDifficultySheet = false) }
+    }
+
+    fun onDifficultySheetSelectDifficulty(difficulty: VitruvianDeviceManager.EchoDifficulty) {
+        viewModelScope.launch {
+            val params = runCatching { workoutSettingsRepository.getModeParameters(difficulty) }
+                .getOrElse {
+                    at.sunilson.justlift.features.workout.data.ModeParameters(gain = 1.0f, capKg = 50.0f)
+                }
+            _state.update {
+                it.copy(
+                    difficultySheetSelection = difficulty,
+                    difficultySheetGain = params.gain,
+                    difficultySheetCap = params.capKg
+                )
+            }
+        }
+    }
+
+    fun onDifficultySheetUpdateGain(value: Float) {
+        val selected = state.value.difficultySheetSelection
+        viewModelScope.launch {
+            val current = workoutSettingsRepository.getModeParameters(selected)
+            val newParams = current.copy(gain = value.coerceIn(0.5f, 3.333f))
+            workoutSettingsRepository.saveModeParameters(selected, newParams)
+            _state.update { it.copy(difficultySheetGain = newParams.gain) }
+        }
+    }
+
+    fun onDifficultySheetUpdateCap(value: Float) {
+        val selected = state.value.difficultySheetSelection
+        viewModelScope.launch {
+            val current = workoutSettingsRepository.getModeParameters(selected)
+            val newParams = current.copy(capKg = value.coerceIn(15f, 50f))
+            workoutSettingsRepository.saveModeParameters(selected, newParams)
+            _state.update { it.copy(difficultySheetCap = newParams.capKg) }
+        }
+    }
+
+    fun onDifficultySheetResetSelected() {
+        val selected = state.value.difficultySheetSelection
+        viewModelScope.launch {
+            workoutSettingsRepository.resetModeParameters(selected)
+            val restored = workoutSettingsRepository.getModeParameters(selected)
+            _state.update {
+                it.copy(
+                    difficultySheetGain = restored.gain,
+                    difficultySheetCap = restored.capKg
+                )
+            }
+        }
     }
 
     companion object {

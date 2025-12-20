@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.koin.core.annotation.Single
+import at.sunilson.justlift.features.workout.data.WorkoutSettingsRepository
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.ceil
@@ -36,6 +37,7 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 @Single
 class VitruvianDeviceManagerImpl(
+    private val workoutSettingsRepository: WorkoutSettingsRepository,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 ) : VitruvianDeviceManager {
 
@@ -276,12 +278,17 @@ class VitruvianDeviceManagerImpl(
         val eccentricRatio = eccentricPercentage.coerceIn(0.0, 1.3)
         val eccentricPctInt = (eccentricRatio * 100.0).roundToInt().coerceIn(0, 130)
 
-        // Build Echo control frame using chosen difficulty.
+        // Resolve per-mode machine parameters (gain, cap) from repository
+        val modeParams = workoutSettingsRepository.getModeParameters(difficulty)
+
+        // Build Echo control frame using chosen difficulty and tuned parameters.
         val frame = buildEchoControlFrame(
             level = difficulty,
             // If maxReps is null we use 0xFF which means unlimited (Just Lift)
             targetReps = maxReps,
-            eccentricPct = eccentricPctInt
+            eccentricPct = eccentricPctInt,
+            gain = modeParams.gain,
+            cap = modeParams.capKg
         )
         writeWithResponse(device, RX_CHARACTERISTIC, frame)
 
@@ -473,7 +480,9 @@ class VitruvianDeviceManagerImpl(
     private fun buildEchoControlFrame(
         level: VitruvianDeviceManager.EchoDifficulty,
         targetReps: Int?,
-        eccentricPct: Int = 60 // Reasonable default; real app can surface this later
+        eccentricPct: Int = 60, // Reasonable default; real app can surface this later
+        gain: Float,
+        cap: Float
     ): ByteArray {
         val buf = ByteBuffer.allocate(32).order(ByteOrder.LITTLE_ENDIAN)
 
@@ -497,14 +506,6 @@ class VitruvianDeviceManagerImpl(
         buf.putShort(50.toShort())
         // Smoothing at 0x0C (f32)
         buf.putFloat(0.1f)
-
-        // Level-dependent params
-        val (gain, cap) = when (level) {
-            VitruvianDeviceManager.EchoDifficulty.HARD -> 1.0f to 50.0f
-            VitruvianDeviceManager.EchoDifficulty.HARDER -> 1.25f to 40.0f
-            VitruvianDeviceManager.EchoDifficulty.HARDEST -> 1.667f to 30.0f
-            VitruvianDeviceManager.EchoDifficulty.EPIC -> 3.333f to 15.0f
-        }
 
         // Gain at 0x10 (f32)
         buf.putFloat(gain)

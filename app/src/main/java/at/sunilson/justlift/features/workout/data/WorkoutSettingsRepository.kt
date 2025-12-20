@@ -30,6 +30,22 @@ interface WorkoutSettingsRepository {
     suspend fun get(): WorkoutSettings
     suspend fun save(settings: WorkoutSettings)
 
+    // Per-difficulty settings
+    suspend fun getDifficultySettings(difficulty: VitruvianDeviceManager.EchoDifficulty): DifficultySettings
+    suspend fun saveDifficultySettings(
+        difficulty: VitruvianDeviceManager.EchoDifficulty,
+        settings: DifficultySettings
+    )
+    suspend fun resetDifficultySettings(difficulty: VitruvianDeviceManager.EchoDifficulty)
+
+    // Per-difficulty machine parameters (used by Echo control frame)
+    suspend fun getModeParameters(difficulty: VitruvianDeviceManager.EchoDifficulty): ModeParameters
+    suspend fun saveModeParameters(
+        difficulty: VitruvianDeviceManager.EchoDifficulty,
+        params: ModeParameters
+    )
+    suspend fun resetModeParameters(difficulty: VitruvianDeviceManager.EchoDifficulty)
+
     // Saved device (for auto-connect)
     val savedDeviceFlow: Flow<SavedDevice?>
     suspend fun setLastDevice(id: String, name: String?)
@@ -41,6 +57,20 @@ data class WorkoutSettings(
     val useNoRepLimit: Boolean = true,
     val repetitions: Int = 8,
     val eccentricPercentage: Float = 100f
+)
+
+data class DifficultySettings(
+    val useNoRepLimit: Boolean = true,
+    val repetitions: Int = 8,
+    val eccentricPercentage: Float = 100f
+)
+
+/**
+ * Per-mode machine parameters for Echo control frame.
+ */
+data class ModeParameters(
+    val gain: Float,
+    val capKg: Float
 )
 
 data class SavedDevice(
@@ -84,6 +114,66 @@ class WorkoutSettingsRepositoryImpl(
         }
     }
 
+    override suspend fun getDifficultySettings(difficulty: VitruvianDeviceManager.EchoDifficulty): DifficultySettings {
+        // Read difficulty-specific values from store; fall back to global defaults if missing
+        val prefs = dataStore.data.first()
+        return DifficultySettings(
+            useNoRepLimit = prefs[boolKey(diffKey(KEY_USE_NO_REP.name, difficulty))]
+                ?: (prefs[KEY_USE_NO_REP] ?: DifficultySettings().useNoRepLimit),
+            repetitions = prefs[intKey(diffKey(KEY_REPS.name, difficulty))]
+                ?: (prefs[KEY_REPS] ?: DifficultySettings().repetitions),
+            eccentricPercentage = prefs[floatKey(diffKey(KEY_ECCENTRIC_PERCENT.name, difficulty))]
+                ?: (prefs[KEY_ECCENTRIC_PERCENT] ?: DifficultySettings().eccentricPercentage)
+        )
+    }
+
+    override suspend fun saveDifficultySettings(
+        difficulty: VitruvianDeviceManager.EchoDifficulty,
+        settings: DifficultySettings
+    ) {
+        dataStore.edit { prefs ->
+            prefs[boolKey(diffKey(KEY_USE_NO_REP.name, difficulty))] = settings.useNoRepLimit
+            prefs[intKey(diffKey(KEY_REPS.name, difficulty))] = settings.repetitions
+            prefs[floatKey(diffKey(KEY_ECCENTRIC_PERCENT.name, difficulty))] = settings.eccentricPercentage
+        }
+    }
+
+    override suspend fun resetDifficultySettings(difficulty: VitruvianDeviceManager.EchoDifficulty) {
+        dataStore.edit { prefs ->
+            prefs.remove(boolKey(diffKey(KEY_USE_NO_REP.name, difficulty)))
+            prefs.remove(intKey(diffKey(KEY_REPS.name, difficulty)))
+            prefs.remove(floatKey(diffKey(KEY_ECCENTRIC_PERCENT.name, difficulty)))
+        }
+    }
+
+    override suspend fun getModeParameters(difficulty: VitruvianDeviceManager.EchoDifficulty): ModeParameters {
+        val prefs = dataStore.data.first()
+        val defaults = defaultModeParameters(difficulty)
+        val gainKey = floatKey(modeKey("mode_gain", difficulty))
+        val capKey = floatKey(modeKey("mode_cap", difficulty))
+        return ModeParameters(
+            gain = prefs[gainKey] ?: defaults.gain,
+            capKg = prefs[capKey] ?: defaults.capKg
+        )
+    }
+
+    override suspend fun saveModeParameters(
+        difficulty: VitruvianDeviceManager.EchoDifficulty,
+        params: ModeParameters
+    ) {
+        dataStore.edit { prefs ->
+            prefs[floatKey(modeKey("mode_gain", difficulty))] = params.gain
+            prefs[floatKey(modeKey("mode_cap", difficulty))] = params.capKg
+        }
+    }
+
+    override suspend fun resetModeParameters(difficulty: VitruvianDeviceManager.EchoDifficulty) {
+        dataStore.edit { prefs ->
+            prefs.remove(floatKey(modeKey("mode_gain", difficulty)))
+            prefs.remove(floatKey(modeKey("mode_cap", difficulty)))
+        }
+    }
+
     override val savedDeviceFlow: Flow<SavedDevice?> = dataStore.data
         .catch { e -> if (e is IOException) emit(emptyPreferences()) else throw e }
         .map { prefs ->
@@ -117,5 +207,23 @@ class WorkoutSettingsRepositoryImpl(
         private val KEY_ECCENTRIC_PERCENT = floatPreferencesKey("eccentric_percent")
         private val KEY_LAST_DEVICE_ID = stringPreferencesKey("last_device_id")
         private val KEY_LAST_DEVICE_NAME = stringPreferencesKey("last_device_name")
+
+        // Helpers to create typed keys dynamically for per-difficulty settings
+        private fun diffKey(base: String, difficulty: VitruvianDeviceManager.EchoDifficulty): String =
+            "${base}_${difficulty.name.lowercase()}"
+
+        private fun modeKey(base: String, difficulty: VitruvianDeviceManager.EchoDifficulty): String =
+            "${base}_${difficulty.name.lowercase()}"
+
+        private fun boolKey(name: String) = booleanPreferencesKey(name)
+        private fun intKey(name: String) = intPreferencesKey(name)
+        private fun floatKey(name: String) = floatPreferencesKey(name)
+
+        private fun defaultModeParameters(d: VitruvianDeviceManager.EchoDifficulty): ModeParameters = when (d) {
+            VitruvianDeviceManager.EchoDifficulty.HARD -> ModeParameters(gain = 1.0f, capKg = 50.0f)
+            VitruvianDeviceManager.EchoDifficulty.HARDER -> ModeParameters(gain = 1.25f, capKg = 40.0f)
+            VitruvianDeviceManager.EchoDifficulty.HARDEST -> ModeParameters(gain = 1.667f, capKg = 30.0f)
+            VitruvianDeviceManager.EchoDifficulty.EPIC -> ModeParameters(gain = 3.333f, capKg = 15.0f)
+        }
     }
 }

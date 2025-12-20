@@ -23,6 +23,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Text
@@ -56,6 +57,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Tune
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -67,6 +69,7 @@ import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 import at.sunilson.justlift.features.workout.presentation.history.HistoryOverlay
 import androidx.compose.ui.zIndex
+import at.sunilson.justlift.features.workout.presentation.widgets.DifficultySettingsSheet
 
 @OptIn(ExperimentalApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -77,6 +80,12 @@ fun WorkoutScreen(
     onEccentricSliderValueChange: (Float) -> Unit = {},
     onRepetitionsSliderValueChange: (Float) -> Unit = {},
     onEchoDifficultyChange: (EchoDifficulty) -> Unit = {},
+    onOpenDifficultySettings: () -> Unit = {},
+    onDismissDifficultySettings: () -> Unit = {},
+    onDifficultySheetSelectDifficulty: (EchoDifficulty) -> Unit = {},
+    onDifficultySheetUpdateGain: (Float) -> Unit = {},
+    onDifficultySheetUpdateCap: (Float) -> Unit = {},
+    onDifficultySheetResetSelected: () -> Unit = {},
     onStartWorkoutClicked: () -> Unit = {},
     onStopWorkoutClicked: () -> Unit = {},
     onDisconnectClicked: () -> Unit = {},
@@ -113,6 +122,9 @@ fun WorkoutScreen(
             TopAppBar(
                 title = { Text("Just Lift") },
                 actions = {
+                    IconButton(onClick = onOpenDifficultySettings) {
+                        Icon(imageVector = Icons.Outlined.Tune, contentDescription = "Difficulty settings")
+                    }
                     IconButton(onClick = onHistoryClicked) {
                         Icon(imageVector = androidx.compose.material.icons.Icons.Outlined.History, contentDescription = "History")
                     }
@@ -264,6 +276,21 @@ fun WorkoutScreen(
                     .clickable {}
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.5f))
+            )
+        }
+    }
+
+    // Difficulty settings modal bottom sheet (independent of connection sheet)
+    if (state.showDifficultySheet) {
+        ModalBottomSheet(onDismissRequest = onDismissDifficultySettings) {
+            DifficultySettingsSheet(
+                selected = state.difficultySheetSelection,
+                onSelect = onDifficultySheetSelectDifficulty,
+                gain = state.difficultySheetGain,
+                onGainChange = onDifficultySheetUpdateGain,
+                capKg = state.difficultySheetCap,
+                onCapChange = onDifficultySheetUpdateCap,
+                onResetSelected = onDifficultySheetResetSelected
             )
         }
     }
