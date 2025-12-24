@@ -35,7 +35,6 @@ fun ConnectionWidget(
 ) {
     Column(
         modifier = Modifier
-            .height(400.dp)
             .padding(16.dp)
     ) {
         // Saved device / auto-connect status (only when not connected)
@@ -92,13 +91,13 @@ fun ConnectionWidget(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { onDeviceSelected(peripheral) },
+                enabled = !isAutoConnecting
             ) {
                 Text(
                     modifier = Modifier.padding(16.dp),
                     text = peripheral.name ?: "Unknown Device", style = MaterialTheme.typography.bodyLarge,
                 )
             }
-
         }
     }
 }

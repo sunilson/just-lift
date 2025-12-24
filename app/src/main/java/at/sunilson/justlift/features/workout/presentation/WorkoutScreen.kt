@@ -107,17 +107,10 @@ fun WorkoutScreen(
         }
     }
 
-    // Ensure the bottom sheet does not cover the history overlay
-    LaunchedEffect(state.showHistory) {
-        if (state.showHistory) {
-            scaffoldState.bottomSheetState.hide()
-        }
-    }
 
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
-        sheetDragHandle = null,
-        sheetSwipeEnabled = isConnected,
+        sheetSwipeEnabled = true,
         topBar = {
             TopAppBar(
                 title = { Text("Just Lift") },
@@ -135,30 +128,12 @@ fun WorkoutScreen(
             )
         },
         sheetContent = {
-            // Show a close button when already connected so the sheet can be dismissed
-            if (isConnected) {
-                Box(Modifier.fillMaxWidth()) {
-                    IconButton(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp),
-                        onClick = { scope.launch { scaffoldState.bottomSheetState.hide() } }
-                    ) {
-                        Icon(imageVector = Icons.Outlined.Close, contentDescription = "Close")
-                    }
-                    Column(Modifier.padding(top = 40.dp)) {
-                        ConnectionWidget(
-                            availableDevices = state.availablePeripherals.toList(),
-                            connectedPeripheral = state.connectedPeripheral,
-                            isAutoConnecting = state.isAutoConnecting,
-                            savedDeviceName = state.savedDevice?.name ?: state.savedDevice?.id,
-                            onDeviceSelected = onDeviceSelected,
-                            onClearSavedDevice = onClearSavedDeviceClicked,
-                            onDisconnectClicked = onDisconnectClicked
-                        )
-                    }
-                }
-            } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 ConnectionWidget(
                     availableDevices = state.availablePeripherals.toList(),
                     connectedPeripheral = state.connectedPeripheral,
@@ -242,34 +217,11 @@ fun WorkoutScreen(
                 }
             }
 
-            // History overlay with animated in/out from the bottom
-            AnimatedVisibility(
-                visible = state.showHistory,
-                enter = fadeIn(animationSpec = tween(150)) +
-                    slideInVertically(
-                        // Start just below the screen
-                        initialOffsetY = { fullHeight -> fullHeight },
-                        animationSpec = tween(250)
-                    ),
-                exit = fadeOut(animationSpec = tween(150)) +
-                    slideOutVertically(
-                        // Slide down off the screen
-                        targetOffsetY = { fullHeight -> fullHeight },
-                        animationSpec = tween(200)
-                    )
-            ) {
-                Box(modifier = Modifier.fillMaxSize().zIndex(1f)) {
-                    HistoryOverlay(
-                        history = state.history.toList(),
-                        onDismiss = onDismissHistoryClicked
-                    )
-                }
-            }
         }
         AnimatedVisibility(
             enter = fadeIn(),
             exit = fadeOut(),
-            visible = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded && !state.showHistory
+            visible = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded
         ) {
             Box(
                 modifier = Modifier
@@ -291,6 +243,15 @@ fun WorkoutScreen(
                 capKg = state.difficultySheetCap,
                 onCapChange = onDifficultySheetUpdateCap,
                 onResetSelected = onDifficultySheetResetSelected
+            )
+        }
+    }
+
+    if (state.showHistory) {
+        ModalBottomSheet(onDismissRequest = onDismissHistoryClicked) {
+            HistoryOverlay(
+                history = state.history.toList(),
+                onDismiss = onDismissHistoryClicked
             )
         }
     }

@@ -547,7 +547,7 @@ class VitruvianDeviceManagerImpl(
         // Movement detection threshold (sum of left+right normalized deltas per tick)
         private const val MOVEMENT_DELTA_THRESHOLD: Double = 0.003
 
-        private const val AUTO_STOP_HOLD_MS: Long = 5_000L
+        private const val AUTO_STOP_HOLD_MS: Long = 3_000L
         private const val BOTTOM_POS_THRESHOLD: Double = 0.1
         private const val FORCE_AUTO_STOP_KG: Double = 2.6
         private const val MONITOR_INTERVAL_MS: Long = 100

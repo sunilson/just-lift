@@ -120,6 +120,7 @@ class WorkoutViewModel(
     }
 
     fun onDisconnectClicked() {
+        manuallyDisconnected = true
         viewModelScope.launch {
             try {
                 _state.update { it.copy(loading = true) }
@@ -219,6 +220,7 @@ class WorkoutViewModel(
         }
     }
 
+    private var manuallyDisconnected: Boolean = false
     private var autoConnectInProgress: Boolean = false
     private fun observeAutoConnect() {
         viewModelScope.launch {
@@ -228,6 +230,8 @@ class WorkoutViewModel(
                     if (connState is com.juul.kable.State.Connected) {
                         _state.update { it.copy(isAutoConnecting = false) }
                         autoConnectInProgress = false
+                        // Reset manually disconnected flag when we successfully connect
+                        manuallyDisconnected = false
                     }
                 }
         }
@@ -241,7 +245,7 @@ class WorkoutViewModel(
                 }
                 .collect { scanned ->
                     val target = state.value.savedDevice ?: return@collect
-                    if (autoConnectInProgress) return@collect
+                    if (autoConnectInProgress || manuallyDisconnected) return@collect
                     val match = scanned.firstOrNull { it.identifier == target.id }
                     if (match != null) {
                         autoConnectInProgress = true
