@@ -5,7 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import androidx.paging.compose.collectAsLazyPagingItems
 import org.koin.androidx.compose.koinViewModel
+import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryUiModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -15,10 +17,12 @@ fun WorkoutDestination(
 ) {
     // Flows that can be paused when app is in background
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val pagedHistory = viewModel.pagedHistory.collectAsLazyPagingItems()
 
 
     WorkoutScreen(
         state = state,
+        pagedHistory = pagedHistory,
         onDeviceSelected = viewModel::onDeviceSelected,
         onUseNoRepLimitChange = viewModel::onUseNoRepLimitChange,
         onEccentricSliderValueChange = viewModel::onEccentricSliderValueChange,

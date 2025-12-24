@@ -79,6 +79,12 @@ dependencies {
     implementation(libs.koin.annotations)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.timber)
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    implementation(libs.room.paging)
+    implementation(libs.paging.runtime)
+    implementation(libs.paging.compose)
+    ksp(libs.room.compiler)
     ksp(libs.koin.ksp.compiler)
 
     testImplementation(libs.junit)

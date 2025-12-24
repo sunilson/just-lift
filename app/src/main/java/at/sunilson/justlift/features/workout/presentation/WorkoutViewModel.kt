@@ -13,7 +13,16 @@ import com.juul.kable.Peripheral
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import at.sunilson.justlift.features.workout.data.database.WorkoutHistoryDao
 import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryEntry
+import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryUiModel
+import at.sunilson.justlift.features.workout.presentation.history.toDomain
+import at.sunilson.justlift.features.workout.presentation.history.toEntity
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.cachedIn
+import androidx.paging.insertSeparators
+import androidx.paging.map
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,17 +34,43 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.android.annotation.KoinViewModel
+import java.util.Date
+import java.text.DateFormat
 import kotlin.math.abs
 import kotlin.math.ceil
-// (duplicates removed)
 
 @KoinViewModel
 @OptIn(ExperimentalCoroutinesApi::class, com.juul.kable.ExperimentalApi::class)
 class WorkoutViewModel(
     private val vitruvianDeviceManager: VitruvianDeviceManager,
     private val soundPlayer: AppSoundPlayer,
-    private val workoutSettingsRepository: WorkoutSettingsRepository
+    private val workoutSettingsRepository: WorkoutSettingsRepository,
+    private val workoutHistoryDao: WorkoutHistoryDao
 ) : ViewModel() {
+
+    val pagedHistory = Pager(PagingConfig(pageSize = 20)) {
+        workoutHistoryDao.getAllPaged()
+    }.flow.map { pagingData ->
+        pagingData
+            .map { it.toDomain() }
+            .map { WorkoutHistoryUiModel.Entry(it) as WorkoutHistoryUiModel }
+            .insertSeparators { before, after ->
+                val afterEntry = (after as? WorkoutHistoryUiModel.Entry)?.entry
+                val beforeEntry = (before as? WorkoutHistoryUiModel.Entry)?.entry
+
+                if (afterEntry == null) return@insertSeparators null
+
+                val afterDate = DateFormat.getDateInstance().format(Date(afterEntry.timestampMillis))
+                if (beforeEntry == null) return@insertSeparators WorkoutHistoryUiModel.Header(afterDate)
+
+                val beforeDate = DateFormat.getDateInstance().format(Date(beforeEntry.timestampMillis))
+                if (beforeDate != afterDate) {
+                    WorkoutHistoryUiModel.Header(afterDate)
+                } else {
+                    null
+                }
+            }
+    }.cachedIn(viewModelScope)
 
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state.asStateFlow()
@@ -281,17 +316,17 @@ class WorkoutViewModel(
                             prev != null && workoutState == null -> prev
                             else -> state.previousWorkoutState
                         }
-                        // Append to in-memory history when a workout just finished
-                        val updatedHistory: ImmutableList<WorkoutHistoryEntry> = when {
-                            prev != null && workoutState == null -> {
-                                val entry = WorkoutHistoryEntry(
-                                    workoutState = prev,
-                                    timestampMillis = System.currentTimeMillis()
-                                )
-                                (listOf(entry) + state.history).toImmutableList()
+                        // Save to database when a workout just finished
+                        if (prev != null && workoutState == null) {
+                            val entry = WorkoutHistoryEntry(
+                                workoutState = prev,
+                                timestampMillis = System.currentTimeMillis()
+                            )
+                            viewModelScope.launch {
+                                workoutHistoryDao.insert(entry.toEntity())
                             }
-                            else -> state.history
                         }
+
                         val updatedPauseStart = when {
                             // Set pause start timestamp exactly when we transition to paused (active -> null)
                             prev != null && workoutState == null -> System.currentTimeMillis()
@@ -302,8 +337,7 @@ class WorkoutViewModel(
                         state.copy(
                             workoutState = workoutState,
                             previousWorkoutState = updatedPrevious,
-                            pauseStartTimestamp = updatedPauseStart,
-                            history = updatedHistory
+                            pauseStartTimestamp = updatedPauseStart
                         )
                     }
                 }
@@ -508,8 +542,6 @@ class WorkoutViewModel(
         val autoStartInSeconds: Int? = null,
         val savedDevice: SavedDevice? = null,
         val isAutoConnecting: Boolean = false,
-        // In-memory workout history for the app session
-        val history: ImmutableList<WorkoutHistoryEntry> = persistentListOf(),
         // UI flag: whether history overlay is visible
         val showHistory: Boolean = false,
         // Difficulty settings editor UI (per-mode machine parameters)

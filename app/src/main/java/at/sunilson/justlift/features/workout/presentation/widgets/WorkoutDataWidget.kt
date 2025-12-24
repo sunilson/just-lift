@@ -29,10 +29,31 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager
 import at.sunilson.justlift.shared.presentation.theme.JustLiftTheme
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
+
+@Composable
+private fun DataRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -59,23 +80,37 @@ fun WorkoutDataWidget(
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     if (workoutState.calibratingRepsCompleted < 3) {
-                        Text("Calibration Repetitions: ${workoutState.calibratingRepsCompleted}")
+                        DataRow(
+                            label = "Calibration Reps",
+                            value = "${workoutState.calibratingRepsCompleted}"
+                        )
                     } else {
-
-                        Text("Repetitions: ${workoutState.upwardRepetitionsCompleted}")
+                        DataRow(
+                            label = "Repetitions",
+                            value = "${workoutState.upwardRepetitionsCompleted}"
+                        )
                     }
-                }
-            }
-            Spacer(modifier = Modifier.height(32.dp))
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Average Upward Force: ${"%.1f".format(workoutState.averageUpwardForce)}kg")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Average Downward Force: ${"%.1f".format(workoutState.averageDownwardForce)}kg")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Max Upward Force: ${"%.1f".format(workoutState.maxUpwardForce)}kg")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Max Downward Force: ${"%.1f".format(workoutState.maxDownwardForce)}kg")
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                    DataRow(
+                        label = "Avg. Upward Force",
+                        value = "${"%.1f".format(workoutState.averageUpwardForce)}kg"
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    DataRow(
+                        label = "Avg. Downward Force",
+                        value = "${"%.1f".format(workoutState.averageDownwardForce)}kg"
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    DataRow(
+                        label = "Max Upward Force",
+                        value = "${"%.1f".format(workoutState.maxUpwardForce)}kg"
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    DataRow(
+                        label = "Max Downward Force",
+                        value = "${"%.1f".format(workoutState.maxDownwardForce)}kg"
+                    )
                 }
             }
 
@@ -84,9 +119,15 @@ fun WorkoutDataWidget(
                 Spacer(modifier = Modifier.height(32.dp))
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Left cable force: ${machineState.forceLeftCable}kg")
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("Right cable force: ${machineState.forceRightCable}kg")
+                        DataRow(
+                            label = "Left cable force",
+                            value = "${machineState.forceLeftCable}kg"
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        DataRow(
+                            label = "Right cable force",
+                            value = "${machineState.forceRightCable}kg"
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(32.dp))

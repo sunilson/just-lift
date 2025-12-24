@@ -1,5 +1,5 @@
 Project: Just Lift (Android, Jetpack Compose, Kotlin)
-Last updated: 2025-11-21 18:29 local
+Last updated: 2025-12-24 11:11 local
 
 Overview
 - Purpose: Native Android app to control the Vitruvian Trainer in "Just Lift Echo" mode without the official app.
@@ -76,6 +76,7 @@ Commit & PR guidelines
 - Use Conventional Commits style where possible:
   - feat:, fix:, refactor:, docs:, test:, chore:, build:, ci:
 - Keep commits small and descriptive. Reference issues when available.
+- Always add newly created files to Git immediately.
 
 When to ask for guidance
 - Any change to BLE protocol, security/privacy-relevant behavior, or adding new dependencies/frameworks.

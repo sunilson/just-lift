@@ -68,13 +68,17 @@ import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 import at.sunilson.justlift.features.workout.presentation.history.HistoryOverlay
+import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryEntry
+import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryUiModel
 import androidx.compose.ui.zIndex
 import at.sunilson.justlift.features.workout.presentation.widgets.DifficultySettingsSheet
+import androidx.paging.compose.LazyPagingItems
 
 @OptIn(ExperimentalApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun WorkoutScreen(
     state: WorkoutViewModel.State,
+    pagedHistory: LazyPagingItems<WorkoutHistoryUiModel>? = null,
     onDeviceSelected: (Peripheral) -> Unit = {},
     onUseNoRepLimitChange: (Boolean) -> Unit = {},
     onEccentricSliderValueChange: (Float) -> Unit = {},
@@ -250,7 +254,7 @@ fun WorkoutScreen(
     if (state.showHistory) {
         ModalBottomSheet(onDismissRequest = onDismissHistoryClicked) {
             HistoryOverlay(
-                history = state.history.toList(),
+                history = pagedHistory,
                 onDismiss = onDismissHistoryClicked
             )
         }
