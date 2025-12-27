@@ -36,6 +36,7 @@ interface VitruvianDeviceManager {
      * @param eccentricPercentage Percentage of the repetition time that should be spent in the eccentric phase (0.0 - 1.3)
      */
     suspend fun startWorkout(
+        userId: Int,
         device: Peripheral,
         difficulty: EchoDifficulty,
         @FloatRange(0.0, 1.3)

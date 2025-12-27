@@ -10,8 +10,8 @@ interface WorkoutHistoryDao {
     @Insert
     suspend fun insert(workout: WorkoutHistoryEntity)
 
-    @Query("SELECT * FROM workout_history ORDER BY timestampMillis DESC")
-    fun getAllPaged(): PagingSource<Int, WorkoutHistoryEntity>
+    @Query("SELECT * FROM workout_history WHERE userId = :userId ORDER BY timestampMillis DESC")
+    fun getAllPaged(userId: Int): PagingSource<Int, WorkoutHistoryEntity>
 
     @Query("DELETE FROM workout_history")
     suspend fun deleteAll()

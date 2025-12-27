@@ -258,6 +258,7 @@ class VitruvianDeviceManagerImpl(
     }
 
     override suspend fun startWorkout(
+        userId: Int,
         device: Peripheral,
         difficulty: VitruvianDeviceManager.EchoDifficulty,
         eccentricPercentage: Double,
@@ -279,7 +280,7 @@ class VitruvianDeviceManagerImpl(
         val eccentricPctInt = (eccentricRatio * 100.0).roundToInt().coerceIn(0, 130)
 
         // Resolve per-mode machine parameters (gain, cap) from repository
-        val modeParams = workoutSettingsRepository.getModeParameters(difficulty)
+        val modeParams = workoutSettingsRepository.getModeParameters(userId, difficulty)
 
         // Build Echo control frame using chosen difficulty and tuned parameters.
         val frame = buildEchoControlFrame(

@@ -26,25 +26,27 @@ import java.io.IOException
  * - eccentric percentage (0f..130f as UI uses percent)
  */
 interface WorkoutSettingsRepository {
-    val settingsFlow: Flow<WorkoutSettings>
-    suspend fun get(): WorkoutSettings
-    suspend fun save(settings: WorkoutSettings)
+    fun settingsFlow(userId: Int): Flow<WorkoutSettings>
+    suspend fun get(userId: Int): WorkoutSettings
+    suspend fun save(userId: Int, settings: WorkoutSettings)
 
     // Per-difficulty settings
-    suspend fun getDifficultySettings(difficulty: VitruvianDeviceManager.EchoDifficulty): DifficultySettings
+    suspend fun getDifficultySettings(userId: Int, difficulty: VitruvianDeviceManager.EchoDifficulty): DifficultySettings
     suspend fun saveDifficultySettings(
+        userId: Int,
         difficulty: VitruvianDeviceManager.EchoDifficulty,
         settings: DifficultySettings
     )
-    suspend fun resetDifficultySettings(difficulty: VitruvianDeviceManager.EchoDifficulty)
+    suspend fun resetDifficultySettings(userId: Int, difficulty: VitruvianDeviceManager.EchoDifficulty)
 
     // Per-difficulty machine parameters (used by Echo control frame)
-    suspend fun getModeParameters(difficulty: VitruvianDeviceManager.EchoDifficulty): ModeParameters
+    suspend fun getModeParameters(userId: Int, difficulty: VitruvianDeviceManager.EchoDifficulty): ModeParameters
     suspend fun saveModeParameters(
+        userId: Int,
         difficulty: VitruvianDeviceManager.EchoDifficulty,
         params: ModeParameters
     )
-    suspend fun resetModeParameters(difficulty: VitruvianDeviceManager.EchoDifficulty)
+    suspend fun resetModeParameters(userId: Int, difficulty: VitruvianDeviceManager.EchoDifficulty)
 
     // Saved device (for auto-connect)
     val savedDeviceFlow: Flow<SavedDevice?>
@@ -87,70 +89,86 @@ class WorkoutSettingsRepositoryImpl(
         produceFile = { context.preferencesDataStoreFile(DATASTORE_FILE) }
     )
 
-    override val settingsFlow: Flow<WorkoutSettings> = dataStore.data
+    override fun settingsFlow(userId: Int): Flow<WorkoutSettings> = dataStore.data
         .catch { e ->
             if (e is IOException) emit(emptyPreferences()) else throw e
         }
         .map { prefs ->
             WorkoutSettings(
-                echoDifficulty = prefs[KEY_DIFFICULTY]?.let { name ->
+                echoDifficulty = prefs[stringPreferencesKey(userKey(KEY_DIFFICULTY_NAME, userId))]?.let { name ->
                     runCatching { VitruvianDeviceManager.EchoDifficulty.valueOf(name) }
                         .getOrDefault(WorkoutSettings().echoDifficulty)
                 } ?: WorkoutSettings().echoDifficulty,
-                useNoRepLimit = prefs[KEY_USE_NO_REP] ?: WorkoutSettings().useNoRepLimit,
-                repetitions = prefs[KEY_REPS] ?: WorkoutSettings().repetitions,
-                eccentricPercentage = prefs[KEY_ECCENTRIC_PERCENT] ?: WorkoutSettings().eccentricPercentage
+                useNoRepLimit = prefs[booleanPreferencesKey(userKey(KEY_USE_NO_REP_NAME, userId))]
+                    ?: WorkoutSettings().useNoRepLimit,
+                repetitions = prefs[intPreferencesKey(userKey(KEY_REPS_NAME, userId))]
+                    ?: WorkoutSettings().repetitions,
+                eccentricPercentage = prefs[floatPreferencesKey(userKey(KEY_ECCENTRIC_PERCENT_NAME, userId))]
+                    ?: WorkoutSettings().eccentricPercentage
             )
         }
 
-    override suspend fun get(): WorkoutSettings = settingsFlow.first()
+    override suspend fun get(userId: Int): WorkoutSettings = settingsFlow(userId).first()
 
-    override suspend fun save(settings: WorkoutSettings) {
+    override suspend fun save(userId: Int, settings: WorkoutSettings) {
         dataStore.edit { prefs ->
-            prefs[KEY_DIFFICULTY] = settings.echoDifficulty.name
-            prefs[KEY_USE_NO_REP] = settings.useNoRepLimit
-            prefs[KEY_REPS] = settings.repetitions
-            prefs[KEY_ECCENTRIC_PERCENT] = settings.eccentricPercentage
+            prefs[stringPreferencesKey(userKey(KEY_DIFFICULTY_NAME, userId))] = settings.echoDifficulty.name
+            prefs[booleanPreferencesKey(userKey(KEY_USE_NO_REP_NAME, userId))] = settings.useNoRepLimit
+            prefs[intPreferencesKey(userKey(KEY_REPS_NAME, userId))] = settings.repetitions
+            prefs[floatPreferencesKey(userKey(KEY_ECCENTRIC_PERCENT_NAME, userId))] = settings.eccentricPercentage
         }
     }
 
-    override suspend fun getDifficultySettings(difficulty: VitruvianDeviceManager.EchoDifficulty): DifficultySettings {
+    override suspend fun getDifficultySettings(
+        userId: Int,
+        difficulty: VitruvianDeviceManager.EchoDifficulty
+    ): DifficultySettings {
         // Read difficulty-specific values from store; fall back to global defaults if missing
         val prefs = dataStore.data.first()
         return DifficultySettings(
-            useNoRepLimit = prefs[boolKey(diffKey(KEY_USE_NO_REP.name, difficulty))]
-                ?: (prefs[KEY_USE_NO_REP] ?: DifficultySettings().useNoRepLimit),
-            repetitions = prefs[intKey(diffKey(KEY_REPS.name, difficulty))]
-                ?: (prefs[KEY_REPS] ?: DifficultySettings().repetitions),
-            eccentricPercentage = prefs[floatKey(diffKey(KEY_ECCENTRIC_PERCENT.name, difficulty))]
-                ?: (prefs[KEY_ECCENTRIC_PERCENT] ?: DifficultySettings().eccentricPercentage)
+            useNoRepLimit = prefs[boolKey(diffKey(KEY_USE_NO_REP_NAME, difficulty, userId))]
+                ?: (prefs[booleanPreferencesKey(userKey(KEY_USE_NO_REP_NAME, userId))]
+                    ?: DifficultySettings().useNoRepLimit),
+            repetitions = prefs[intKey(diffKey(KEY_REPS_NAME, difficulty, userId))]
+                ?: (prefs[intPreferencesKey(userKey(KEY_REPS_NAME, userId))]
+                    ?: DifficultySettings().repetitions),
+            eccentricPercentage = prefs[floatKey(diffKey(KEY_ECCENTRIC_PERCENT_NAME, difficulty, userId))]
+                ?: (prefs[floatPreferencesKey(userKey(KEY_ECCENTRIC_PERCENT_NAME, userId))]
+                    ?: DifficultySettings().eccentricPercentage)
         )
     }
 
     override suspend fun saveDifficultySettings(
+        userId: Int,
         difficulty: VitruvianDeviceManager.EchoDifficulty,
         settings: DifficultySettings
     ) {
         dataStore.edit { prefs ->
-            prefs[boolKey(diffKey(KEY_USE_NO_REP.name, difficulty))] = settings.useNoRepLimit
-            prefs[intKey(diffKey(KEY_REPS.name, difficulty))] = settings.repetitions
-            prefs[floatKey(diffKey(KEY_ECCENTRIC_PERCENT.name, difficulty))] = settings.eccentricPercentage
+            prefs[boolKey(diffKey(KEY_USE_NO_REP_NAME, difficulty, userId))] = settings.useNoRepLimit
+            prefs[intKey(diffKey(KEY_REPS_NAME, difficulty, userId))] = settings.repetitions
+            prefs[floatKey(diffKey(KEY_ECCENTRIC_PERCENT_NAME, difficulty, userId))] = settings.eccentricPercentage
         }
     }
 
-    override suspend fun resetDifficultySettings(difficulty: VitruvianDeviceManager.EchoDifficulty) {
+    override suspend fun resetDifficultySettings(
+        userId: Int,
+        difficulty: VitruvianDeviceManager.EchoDifficulty
+    ) {
         dataStore.edit { prefs ->
-            prefs.remove(boolKey(diffKey(KEY_USE_NO_REP.name, difficulty)))
-            prefs.remove(intKey(diffKey(KEY_REPS.name, difficulty)))
-            prefs.remove(floatKey(diffKey(KEY_ECCENTRIC_PERCENT.name, difficulty)))
+            prefs.remove(boolKey(diffKey(KEY_USE_NO_REP_NAME, difficulty, userId)))
+            prefs.remove(intKey(diffKey(KEY_REPS_NAME, difficulty, userId)))
+            prefs.remove(floatKey(diffKey(KEY_ECCENTRIC_PERCENT_NAME, difficulty, userId)))
         }
     }
 
-    override suspend fun getModeParameters(difficulty: VitruvianDeviceManager.EchoDifficulty): ModeParameters {
+    override suspend fun getModeParameters(
+        userId: Int,
+        difficulty: VitruvianDeviceManager.EchoDifficulty
+    ): ModeParameters {
         val prefs = dataStore.data.first()
         val defaults = defaultModeParameters(difficulty)
-        val gainKey = floatKey(modeKey("mode_gain", difficulty))
-        val capKey = floatKey(modeKey("mode_cap", difficulty))
+        val gainKey = floatKey(modeKey("mode_gain", difficulty, userId))
+        val capKey = floatKey(modeKey("mode_cap", difficulty, userId))
         return ModeParameters(
             gain = prefs[gainKey] ?: defaults.gain,
             capKg = prefs[capKey] ?: defaults.capKg
@@ -158,19 +176,23 @@ class WorkoutSettingsRepositoryImpl(
     }
 
     override suspend fun saveModeParameters(
+        userId: Int,
         difficulty: VitruvianDeviceManager.EchoDifficulty,
         params: ModeParameters
     ) {
         dataStore.edit { prefs ->
-            prefs[floatKey(modeKey("mode_gain", difficulty))] = params.gain
-            prefs[floatKey(modeKey("mode_cap", difficulty))] = params.capKg
+            prefs[floatKey(modeKey("mode_gain", difficulty, userId))] = params.gain
+            prefs[floatKey(modeKey("mode_cap", difficulty, userId))] = params.capKg
         }
     }
 
-    override suspend fun resetModeParameters(difficulty: VitruvianDeviceManager.EchoDifficulty) {
+    override suspend fun resetModeParameters(
+        userId: Int,
+        difficulty: VitruvianDeviceManager.EchoDifficulty
+    ) {
         dataStore.edit { prefs ->
-            prefs.remove(floatKey(modeKey("mode_gain", difficulty)))
-            prefs.remove(floatKey(modeKey("mode_cap", difficulty)))
+            prefs.remove(floatKey(modeKey("mode_gain", difficulty, userId)))
+            prefs.remove(floatKey(modeKey("mode_cap", difficulty, userId)))
         }
     }
 
@@ -201,19 +223,23 @@ class WorkoutSettingsRepositoryImpl(
 
     private companion object {
         private const val DATASTORE_FILE = "workout_settings.preferences_pb"
-        private val KEY_DIFFICULTY = stringPreferencesKey("difficulty")
-        private val KEY_USE_NO_REP = booleanPreferencesKey("use_no_rep_limit")
-        private val KEY_REPS = intPreferencesKey("reps")
-        private val KEY_ECCENTRIC_PERCENT = floatPreferencesKey("eccentric_percent")
+
+        private const val KEY_DIFFICULTY_NAME = "difficulty"
+        private const val KEY_USE_NO_REP_NAME = "use_no_rep_limit"
+        private const val KEY_REPS_NAME = "reps"
+        private const val KEY_ECCENTRIC_PERCENT_NAME = "eccentric_percent"
+
         private val KEY_LAST_DEVICE_ID = stringPreferencesKey("last_device_id")
         private val KEY_LAST_DEVICE_NAME = stringPreferencesKey("last_device_name")
 
-        // Helpers to create typed keys dynamically for per-difficulty settings
-        private fun diffKey(base: String, difficulty: VitruvianDeviceManager.EchoDifficulty): String =
-            "${base}_${difficulty.name.lowercase()}"
+        private fun userKey(base: String, userId: Int): String = "${base}_u${userId}"
 
-        private fun modeKey(base: String, difficulty: VitruvianDeviceManager.EchoDifficulty): String =
-            "${base}_${difficulty.name.lowercase()}"
+        // Helpers to create typed keys dynamically for per-difficulty settings
+        private fun diffKey(base: String, difficulty: VitruvianDeviceManager.EchoDifficulty, userId: Int): String =
+            "${base}_${difficulty.name.lowercase()}_u${userId}"
+
+        private fun modeKey(base: String, difficulty: VitruvianDeviceManager.EchoDifficulty, userId: Int): String =
+            "${base}_${difficulty.name.lowercase()}_u${userId}"
 
         private fun boolKey(name: String) = booleanPreferencesKey(name)
         private fun intKey(name: String) = intPreferencesKey(name)

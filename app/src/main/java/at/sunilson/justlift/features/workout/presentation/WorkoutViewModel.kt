@@ -14,6 +14,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import at.sunilson.justlift.features.workout.data.database.WorkoutHistoryDao
+import at.sunilson.justlift.features.user.data.UserRepository
 import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryEntry
 import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryUiModel
 import at.sunilson.justlift.features.workout.presentation.history.toDomain
@@ -23,6 +24,8 @@ import androidx.paging.PagingConfig
 import androidx.paging.cachedIn
 import androidx.paging.insertSeparators
 import androidx.paging.map
+import android.widget.Toast
+import android.content.Context
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +34,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.android.annotation.KoinViewModel
@@ -45,12 +50,18 @@ class WorkoutViewModel(
     private val vitruvianDeviceManager: VitruvianDeviceManager,
     private val soundPlayer: AppSoundPlayer,
     private val workoutSettingsRepository: WorkoutSettingsRepository,
-    private val workoutHistoryDao: WorkoutHistoryDao
+    private val workoutHistoryDao: WorkoutHistoryDao,
+    private val userRepository: UserRepository,
+    private val context: Context
 ) : ViewModel() {
 
-    val pagedHistory = Pager(PagingConfig(pageSize = 20)) {
-        workoutHistoryDao.getAllPaged()
-    }.flow.map { pagingData ->
+    val currentUserId = userRepository.currentUserId.stateIn(viewModelScope, SharingStarted.Eagerly, 1)
+
+    val pagedHistory = currentUserId.flatMapLatest { userId ->
+        Pager(PagingConfig(pageSize = 20)) {
+            workoutHistoryDao.getAllPaged(userId)
+        }.flow
+    }.map { pagingData ->
         pagingData
             .map { it.toDomain() }
             .map { WorkoutHistoryUiModel.Entry(it) as WorkoutHistoryUiModel }
@@ -93,6 +104,26 @@ class WorkoutViewModel(
         observeMachineState()
         observeSavedDevice()
         observeAutoConnect()
+        observeCurrentUser()
+    }
+
+    private fun observeCurrentUser() {
+        viewModelScope.launch {
+            currentUserId.collect { userId ->
+                runCatching { workoutSettingsRepository.get(userId) }
+                    .onSuccess { settings ->
+                        _state.update { s ->
+                            s.copy(
+                                echoDifficulty = settings.echoDifficulty,
+                                useNoRepLimit = settings.useNoRepLimit,
+                                repetitionsSliderValue = settings.repetitions,
+                                eccentricSliderValue = settings.eccentricPercentage,
+                                difficultySheetSelection = settings.echoDifficulty
+                            )
+                        }
+                    }
+            }
+        }
     }
 
     fun onDeviceSelected(device: Peripheral) {
@@ -112,21 +143,6 @@ class WorkoutViewModel(
 
                 // Persist last device for future auto-connects
                 runCatching { workoutSettingsRepository.setLastDevice(device.identifier, device.name) }
-
-                // Restore previously saved defaults once upon a fresh connection
-                runCatching { workoutSettingsRepository.get() }
-                    .onSuccess { settings ->
-                        // Restore global settings and selected difficulty
-                        _state.update { s ->
-                            s.copy(
-                                echoDifficulty = settings.echoDifficulty,
-                                useNoRepLimit = settings.useNoRepLimit,
-                                repetitionsSliderValue = settings.repetitions,
-                                eccentricSliderValue = settings.eccentricPercentage,
-                                difficultySheetSelection = settings.echoDifficulty
-                            )
-                        }
-                    }
             } catch (error: Exception) {
                 Log.e("WorkoutViewModel", "Error connecting to device", error)
             } finally {
@@ -201,6 +217,7 @@ class WorkoutViewModel(
         viewModelScope.launch {
             // Save last used selection for quick restore
             workoutSettingsRepository.save(
+                currentUserId.value,
                 WorkoutSettings(
                     echoDifficulty = s.echoDifficulty,
                     useNoRepLimit = s.useNoRepLimit,
@@ -323,7 +340,7 @@ class WorkoutViewModel(
                                 timestampMillis = System.currentTimeMillis()
                             )
                             viewModelScope.launch {
-                                workoutHistoryDao.insert(entry.toEntity())
+                                workoutHistoryDao.insert(entry.toEntity(currentUserId.value))
                             }
                         }
 
@@ -502,6 +519,7 @@ class WorkoutViewModel(
             // Clear any pause timestamp as we are starting/resuming a workout
             _state.update { it.copy(loading = true, pauseStartTimestamp = null) }
             vitruvianDeviceManager.startWorkout(
+                userId = currentUserId.value,
                 device = _connectedPeripheral.value ?: return,
                 difficulty = state.value.echoDifficulty,
                 eccentricPercentage = (state.value.eccentricSliderValue / 100.0).toDouble(),
@@ -564,7 +582,12 @@ class WorkoutViewModel(
         // Initialize sheet selection from current difficulty and load its values
         val currentDifficulty = state.value.echoDifficulty
         viewModelScope.launch {
-            val params = runCatching { workoutSettingsRepository.getModeParameters(currentDifficulty) }
+            val params = runCatching {
+                workoutSettingsRepository.getModeParameters(
+                    currentUserId.value,
+                    currentDifficulty
+                )
+            }
                 .getOrElse {
                     // Fall back to EPIC max bounds or safe defaults if needed
                     at.sunilson.justlift.features.workout.data.ModeParameters(gain = 1.0f, capKg = 50.0f)
@@ -586,7 +609,12 @@ class WorkoutViewModel(
 
     fun onDifficultySheetSelectDifficulty(difficulty: VitruvianDeviceManager.EchoDifficulty) {
         viewModelScope.launch {
-            val params = runCatching { workoutSettingsRepository.getModeParameters(difficulty) }
+            val params = runCatching {
+                workoutSettingsRepository.getModeParameters(
+                    currentUserId.value,
+                    difficulty
+                )
+            }
                 .getOrElse {
                     at.sunilson.justlift.features.workout.data.ModeParameters(gain = 1.0f, capKg = 50.0f)
                 }
@@ -603,9 +631,9 @@ class WorkoutViewModel(
     fun onDifficultySheetUpdateGain(value: Float) {
         val selected = state.value.difficultySheetSelection
         viewModelScope.launch {
-            val current = workoutSettingsRepository.getModeParameters(selected)
+            val current = workoutSettingsRepository.getModeParameters(currentUserId.value, selected)
             val newParams = current.copy(gain = value.coerceIn(0.5f, 3.333f))
-            workoutSettingsRepository.saveModeParameters(selected, newParams)
+            workoutSettingsRepository.saveModeParameters(currentUserId.value, selected, newParams)
             _state.update { it.copy(difficultySheetGain = newParams.gain) }
         }
     }
@@ -613,9 +641,9 @@ class WorkoutViewModel(
     fun onDifficultySheetUpdateCap(value: Float) {
         val selected = state.value.difficultySheetSelection
         viewModelScope.launch {
-            val current = workoutSettingsRepository.getModeParameters(selected)
+            val current = workoutSettingsRepository.getModeParameters(currentUserId.value, selected)
             val newParams = current.copy(capKg = value.coerceIn(15f, 50f))
-            workoutSettingsRepository.saveModeParameters(selected, newParams)
+            workoutSettingsRepository.saveModeParameters(currentUserId.value, selected, newParams)
             _state.update { it.copy(difficultySheetCap = newParams.capKg) }
         }
     }
@@ -623,14 +651,22 @@ class WorkoutViewModel(
     fun onDifficultySheetResetSelected() {
         val selected = state.value.difficultySheetSelection
         viewModelScope.launch {
-            workoutSettingsRepository.resetModeParameters(selected)
-            val restored = workoutSettingsRepository.getModeParameters(selected)
+            workoutSettingsRepository.resetModeParameters(currentUserId.value, selected)
+            val restored = workoutSettingsRepository.getModeParameters(currentUserId.value, selected)
             _state.update {
                 it.copy(
                     difficultySheetGain = restored.gain,
                     difficultySheetCap = restored.capKg
                 )
             }
+        }
+    }
+
+    fun onUserSwitchClicked() {
+        viewModelScope.launch {
+            val nextUser = if (currentUserId.value == 1) 2 else 1
+            userRepository.switchToUser(nextUser)
+            Toast.makeText(context, "Switched to User $nextUser", Toast.LENGTH_SHORT).show()
         }
     }
 

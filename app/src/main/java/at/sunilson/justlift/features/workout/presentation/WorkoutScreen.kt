@@ -78,6 +78,7 @@ import androidx.paging.compose.LazyPagingItems
 @Composable
 fun WorkoutScreen(
     state: WorkoutViewModel.State,
+    currentUserId: Int = 1,
     pagedHistory: LazyPagingItems<WorkoutHistoryUiModel>? = null,
     onDeviceSelected: (Peripheral) -> Unit = {},
     onUseNoRepLimitChange: (Boolean) -> Unit = {},
@@ -95,7 +96,8 @@ fun WorkoutScreen(
     onDisconnectClicked: () -> Unit = {},
     onClearSavedDeviceClicked: () -> Unit = {},
     onHistoryClicked: () -> Unit = {},
-    onDismissHistoryClicked: () -> Unit = {}
+    onDismissHistoryClicked: () -> Unit = {},
+    onUserSwitchClicked: () -> Unit = {}
 ) {
     val scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState = rememberStandardBottomSheetState(skipHiddenState = false))
     val isWorkoutInProgress = state.workoutState != null && state.machineState != null
@@ -119,6 +121,23 @@ fun WorkoutScreen(
             TopAppBar(
                 title = { Text("Just Lift") },
                 actions = {
+                    IconButton(onClick = onUserSwitchClicked) {
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    MaterialTheme.colorScheme.secondaryContainer,
+                                    MaterialTheme.shapes.small
+                                )
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = currentUserId.toString(),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
                     IconButton(onClick = onOpenDifficultySettings) {
                         Icon(imageVector = Icons.Outlined.Tune, contentDescription = "Difficulty settings")
                     }
@@ -280,6 +299,7 @@ private fun `Devices available`() {
 private fun `Connected but no workout started`() {
     ScreenPreview {
         WorkoutScreen(
+            currentUserId = 2,
             state = WorkoutViewModel.State(
                 connectedPeripheral = FakePeripheral("Machine 1"),
                 connectedPeripheralState = State.Connected(CoroutineScope(Dispatchers.Main)),

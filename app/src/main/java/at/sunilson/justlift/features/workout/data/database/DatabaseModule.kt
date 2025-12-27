@@ -13,7 +13,7 @@ class DatabaseModule {
             context,
             AppDatabase::class.java,
             "just-lift-db"
-        ).build()
+        ).addMigrations(AppDatabase.MIGRATION_1_2).build()
     }
 
     @Single

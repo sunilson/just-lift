@@ -29,7 +29,8 @@ fun WorkoutHistoryEntity.toDomain() = WorkoutHistoryEntry(
     )
 )
 
-fun WorkoutHistoryEntry.toEntity() = WorkoutHistoryEntity(
+fun WorkoutHistoryEntry.toEntity(userId: Int) = WorkoutHistoryEntity(
+    userId = userId,
     timestampMillis = timestampMillis,
     calibratingRepsCompleted = workoutState.calibratingRepsCompleted,
     maxReps = workoutState.maxReps,
