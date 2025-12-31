@@ -37,9 +37,10 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 @Single
 class VitruvianDeviceManagerImpl(
-    private val workoutSettingsRepository: WorkoutSettingsRepository,
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val workoutSettingsRepository: WorkoutSettingsRepository
 ) : VitruvianDeviceManager {
+
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private fun ensureMachineJobRunning(device: Peripheral) {
         val session = sessionFor(device)
@@ -86,10 +87,6 @@ class VitruvianDeviceManagerImpl(
                     // Throttled debug logging for diagnosing position scaling
                     val nowTs = System.currentTimeMillis()
                     if (nowTs - session.lastLogAtMillis > POSITION_LOG_THROTTLE_MS) {
-                        Log.d(
-                            "VitruvianDevice",
-                            "pos raw A=$rawPosA B=$rawPosB | norm R=${String.format("%.3f", posRight)} L=${String.format("%.3f", posLeft)} | moving=$moving"
-                        )
                         session.lastLogAtMillis = nowTs
                     }
 
@@ -111,6 +108,8 @@ class VitruvianDeviceManagerImpl(
                                 Phase.UP -> {
                                     if (moving) {
                                         session.upForceSum += combined
+                                        session.upForceLeftSum += leftKg
+                                        session.upForceRightSum += rightKg
                                         session.upForceCount += 1
                                     }
                                     if (combined > session.maxUpForce) session.maxUpForce = combined
@@ -118,18 +117,44 @@ class VitruvianDeviceManagerImpl(
                                 Phase.DOWN -> {
                                     if (moving) {
                                         session.downForceSum += combined
+                                        session.downForceLeftSum += leftKg
+                                        session.downForceRightSum += rightKg
                                         session.downForceCount += 1
                                     }
                                     if (combined > session.maxDownForce) session.maxDownForce = combined
                                 }
                             }
+
+                            if (posLeft < session.minPosLeft) session.minPosLeft = posLeft
+                            if (posLeft > session.maxPosLeft) session.maxPosLeft = posLeft
+                            if (posRight < session.minPosRight) session.minPosRight = posRight
+                            if (posRight > session.maxPosRight) session.maxPosRight = posRight
+
                             val avgUp = if (session.upForceCount > 0) session.upForceSum / session.upForceCount else 0.0
                             val avgDown = if (session.downForceCount > 0) session.downForceSum / session.downForceCount else 0.0
+
+                            val avgUpLeft = if (session.upForceCount > 0) session.upForceLeftSum / session.upForceCount else 0.0
+                            val avgUpRight = if (session.upForceCount > 0) session.upForceRightSum / session.upForceCount else 0.0
+                            val avgDownLeft = if (session.downForceCount > 0) session.downForceLeftSum / session.downForceCount else 0.0
+                            val avgDownRight = if (session.downForceCount > 0) session.downForceRightSum / session.downForceCount else 0.0
+
                             session.state.value = activeState.copy(
                                 averageUpwardForce = avgUp,
                                 averageDownwardForce = avgDown,
                                 maxUpwardForce = session.maxUpForce,
-                                maxDownwardForce = session.maxDownForce
+                                maxDownwardForce = session.maxDownForce,
+                                averageUpwardForceLeft = avgUpLeft,
+                                averageUpwardForceRight = avgUpRight,
+                                averageDownwardForceLeft = avgDownLeft,
+                                averageDownwardForceRight = avgDownRight,
+                                minPositionLeft = session.minPosLeft,
+                                maxPositionLeft = session.maxPosLeft,
+                                minPositionRight = session.minPosRight,
+                                maxPositionRight = session.maxPosRight,
+                                avgMinPositionLeft = if (session.minPosLeftCount > 0) session.minPosLeftSum / session.minPosLeftCount else 0.0,
+                                avgMaxPositionLeft = if (session.maxPosLeftCount > 0) session.maxPosLeftSum / session.maxPosLeftCount else 0.0,
+                                avgMinPositionRight = if (session.minPosRightCount > 0) session.minPosRightSum / session.minPosRightCount else 0.0,
+                                avgMaxPositionRight = if (session.maxPosRightCount > 0) session.maxPosRightSum / session.maxPosRightCount else 0.0
                             )
                         }
                     }
@@ -226,7 +251,24 @@ class VitruvianDeviceManagerImpl(
         var downForceCount: Long = 0,
         var maxUpForce: Double = 0.0,
         var maxDownForce: Double = 0.0,
-        var currentPhase: Phase? = null
+        var upForceLeftSum: Double = 0.0,
+        var upForceRightSum: Double = 0.0,
+        var downForceLeftSum: Double = 0.0,
+        var downForceRightSum: Double = 0.0,
+        var minPosLeft: Double = 1.0,
+        var maxPosLeft: Double = 0.0,
+        var minPosRight: Double = 1.0,
+        var maxPosRight: Double = 0.0,
+        var minPosLeftSum: Double = 0.0,
+        var minPosLeftCount: Long = 0,
+        var maxPosLeftSum: Double = 0.0,
+        var maxPosLeftCount: Long = 0,
+        var minPosRightSum: Double = 0.0,
+        var minPosRightCount: Long = 0,
+        var maxPosRightSum: Double = 0.0,
+        var maxPosRightCount: Long = 0,
+        var currentPhase: Phase? = null,
+        var difficulty: VitruvianDeviceManager.EchoDifficulty = VitruvianDeviceManager.EchoDifficulty.WARMUP
     )
 
     private enum class Phase { UP, DOWN }
@@ -265,6 +307,7 @@ class VitruvianDeviceManagerImpl(
         maxReps: Int?,
         stopAtLastTopRep: Boolean
     ) {
+        Log.d("ExerciseRecognition", "startWorkout: userId=$userId, difficulty=$difficulty, eccentric=$eccentricPercentage, maxReps=$maxReps")
         val session = sessionFor(device)
         val now = System.currentTimeMillis()
         // If not recently prepared, send INIT + PRESET to ensure fast start
@@ -311,7 +354,24 @@ class VitruvianDeviceManagerImpl(
         session.downForceCount = 0
         session.maxUpForce = 0.0
         session.maxDownForce = 0.0
+        session.upForceLeftSum = 0.0
+        session.upForceRightSum = 0.0
+        session.downForceLeftSum = 0.0
+        session.downForceRightSum = 0.0
+        session.minPosLeft = 1.0
+        session.maxPosLeft = 0.0
+        session.minPosRight = 1.0
+        session.maxPosRight = 0.0
+        session.minPosLeftSum = 0.0
+        session.minPosLeftCount = 0
+        session.maxPosLeftSum = 0.0
+        session.maxPosLeftCount = 0
+        session.minPosRightSum = 0.0
+        session.minPosRightCount = 0
+        session.maxPosRightSum = 0.0
+        session.maxPosRightCount = 0
         session.currentPhase = null
+        session.difficulty = difficulty
         // Reset movement detection so first tick doesn't count as movement by accident
         session.prevPosInitialized = false
         session.prevPosLeft = 0.0
@@ -321,7 +381,8 @@ class VitruvianDeviceManagerImpl(
             maxReps = maxReps,
             upwardRepetitionsCompleted = 0,
             downwardRepetitionsCompleted = 0,
-            timeElapsed = Duration.ZERO
+            timeElapsed = Duration.ZERO,
+            difficulty = difficulty
         )
 
         // Ensure machine polling is running to keep forces updated globally
@@ -353,6 +414,7 @@ class VitruvianDeviceManagerImpl(
                         if (isUpwardCompletion) {
                             // Count calibration rep when TOP is reached
                             session.calibrationRepsCompleted += 1
+                            Log.d("ExerciseRecognition", "Calibration rep completed: ${session.calibrationRepsCompleted}")
                             session.state.value = curr.copy(calibratingRepsCompleted = session.calibrationRepsCompleted)
                             // After finishing calibration at TOP, next movement will be DOWN
                             if (session.calibrationRepsCompleted >= CALIBRATION_REPS) {
@@ -366,19 +428,46 @@ class VitruvianDeviceManagerImpl(
                     if (isUpwardCompletion) {
                         // Top reached -> increment upward counter (shown to user)
                         session.upwardReps += 1
+                        Log.d("ExerciseRecognition", "Upward rep completed: ${session.upwardReps}")
                         // Switch to DOWN phase after reaching the top
                         session.currentPhase = Phase.DOWN
                     } else {
                         // Bottom reached -> increment downward counter and check for auto-stop
                         session.downwardReps += 1
+                        Log.d("ExerciseRecognition", "Downward rep completed: ${session.downwardReps}")
                         // Switch to UP phase after reaching the bottom
                         session.currentPhase = Phase.UP
                     }
 
+                    // Record positions at rep completion to calculate average peak positions
+                    val machineState = session.machineState.value
+                    if (machineState != null) {
+                        if (isUpwardCompletion) {
+                            session.maxPosLeftSum += machineState.positionCableLeft
+                            session.maxPosLeftCount += 1
+                            session.maxPosRightSum += machineState.positionCableRight
+                            session.maxPosRightCount += 1
+                        } else {
+                            session.minPosLeftSum += machineState.positionCableLeft
+                            session.minPosLeftCount += 1
+                            session.minPosRightSum += machineState.positionCableRight
+                            session.minPosRightCount += 1
+                        }
+                    }
+
+                    val avgMinL = if (session.minPosLeftCount > 0) session.minPosLeftSum / session.minPosLeftCount else 0.0
+                    val avgMaxL = if (session.maxPosLeftCount > 0) session.maxPosLeftSum / session.maxPosLeftCount else 0.0
+                    val avgMinR = if (session.minPosRightCount > 0) session.minPosRightSum / session.minPosRightCount else 0.0
+                    val avgMaxR = if (session.maxPosRightCount > 0) session.maxPosRightSum / session.maxPosRightCount else 0.0
+
                     val updated = curr.copy(
                         calibratingRepsCompleted = CALIBRATION_REPS,
                         upwardRepetitionsCompleted = session.upwardReps,
-                        downwardRepetitionsCompleted = session.downwardReps
+                        downwardRepetitionsCompleted = session.downwardReps,
+                        avgMinPositionLeft = avgMinL,
+                        avgMaxPositionLeft = avgMaxL,
+                        avgMinPositionRight = avgMinR,
+                        avgMaxPositionRight = avgMaxR
                     )
                     session.state.value = updated
 
@@ -419,6 +508,7 @@ class VitruvianDeviceManagerImpl(
     }
 
     override suspend fun stopWorkout(device: Peripheral) {
+        Log.d("ExerciseRecognition", "stopWorkout: device=${device.identifier}")
         // Send STOP command (same as INIT command in JS reference)
         try {
             writeWithResponse(device, RX_CHARACTERISTIC, buildInitCommand())

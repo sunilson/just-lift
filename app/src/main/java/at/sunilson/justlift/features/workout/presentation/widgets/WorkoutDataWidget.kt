@@ -111,6 +111,20 @@ fun WorkoutDataWidget(
                         label = "Max Downward Force",
                         value = "${"%.1f".format(workoutState.maxDownwardForce)}kg"
                     )
+                    if (workoutState.avgMinPositionLeft > 0 || workoutState.avgMinPositionRight > 0) {
+                        Spacer(modifier = Modifier.height(24.dp))
+                        DataRow(
+                            label = "Avg. Peak Bottom",
+                            value = "${"%.0f".format((workoutState.avgMinPositionLeft + workoutState.avgMinPositionRight) / 2.0 * 100)}%"
+                        )
+                    }
+                    if (workoutState.avgMaxPositionLeft > 0 || workoutState.avgMaxPositionRight > 0) {
+                        Spacer(modifier = Modifier.height(24.dp))
+                        DataRow(
+                            label = "Avg. Peak Top",
+                            value = "${"%.0f".format((workoutState.avgMaxPositionLeft + workoutState.avgMaxPositionRight) / 2.0 * 100)}%"
+                        )
+                    }
                 }
             }
 

@@ -60,7 +60,20 @@ interface VitruvianDeviceManager {
         val averageUpwardForce: Double = 0.0,
         val averageDownwardForce: Double = 0.0,
         val maxUpwardForce: Double = 0.0,
-        val maxDownwardForce: Double = 0.0
+        val maxDownwardForce: Double = 0.0,
+        val averageUpwardForceLeft: Double = 0.0,
+        val averageUpwardForceRight: Double = 0.0,
+        val averageDownwardForceLeft: Double = 0.0,
+        val averageDownwardForceRight: Double = 0.0,
+        val minPositionLeft: Double = 0.0,
+        val maxPositionLeft: Double = 0.0,
+        val minPositionRight: Double = 0.0,
+        val maxPositionRight: Double = 0.0,
+        val avgMinPositionLeft: Double = 0.0,
+        val avgMaxPositionLeft: Double = 0.0,
+        val avgMinPositionRight: Double = 0.0,
+        val avgMaxPositionRight: Double = 0.0,
+        val difficulty: EchoDifficulty = EchoDifficulty.WARMUP
     )
 
     data class MachineState(
@@ -72,6 +85,6 @@ interface VitruvianDeviceManager {
     )
 
     enum class EchoDifficulty {
-        HARD, HARDER, HARDEST, EPIC
+        WARMUP, HARD, HARDER, HARDEST //, EPIC
     }
 }

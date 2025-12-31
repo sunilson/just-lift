@@ -15,7 +15,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.itemKey
 import at.sunilson.justlift.features.workout.presentation.widgets.WorkoutDataWidget
@@ -23,7 +30,8 @@ import at.sunilson.justlift.features.workout.presentation.widgets.WorkoutDataWid
 @Composable
 fun HistoryOverlay(
     history: LazyPagingItems<WorkoutHistoryUiModel>?,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onEditExerciseName: (WorkoutHistoryEntry) -> Unit
 ) {
     // Content - consume taps so they don't pass to scrim or underlying UI
     LazyColumn(
@@ -50,7 +58,7 @@ fun HistoryOverlay(
                 count = history.itemCount,
                 key = history.itemKey { model ->
                     when (model) {
-                        is WorkoutHistoryUiModel.Entry -> model.entry.timestampMillis
+                        is WorkoutHistoryUiModel.Entry -> model.entry.id
                         is WorkoutHistoryUiModel.Header -> "header_${model.date}"
                     }
                 }
@@ -72,11 +80,34 @@ fun HistoryOverlay(
                             fmt.format(java.util.Date(entry.timestampMillis))
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                timeText,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    timeText,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                                entry.exerciseName?.let {
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        it,
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    entry.workoutState.difficulty.name,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+                                IconButton(onClick = { onEditExerciseName(entry) }) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = "Edit exercise name",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
                             Spacer(modifier = Modifier.height(8.dp))
                             WorkoutDataWidget(
                                 workoutState = entry.workoutState,

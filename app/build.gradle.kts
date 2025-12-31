@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -7,10 +9,22 @@ plugins {
     kotlin("plugin.serialization") version "2.2.0"
 }
 
-fun Project.secret(name: String): String? =
-    providers.environmentVariable(name)
+fun Project.secret(name: String): String? {
+    val localProperties = Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use { 
+            localProperties.load(it)
+        }
+    }
+
+    val fromLocal = localProperties.getProperty(name)
+    if (fromLocal != null) return fromLocal
+
+    return providers.environmentVariable(name)
         .orElse(providers.gradleProperty(name))
         .orNull
+}
 
 android {
     namespace = "at.sunilson.justlift"
@@ -49,6 +63,11 @@ android {
         compose = true
     }
 
+    defaultConfig {
+        buildConfigField("String", "OPENAI_API_KEY", "\"${secret("OPENAI_API_KEY") ?: ""}\"")
+    }
+
+
     @Suppress("UnstableApiUsage")
     experimentalProperties["android.experimental.enableScreenshotTest"] = true
 }
@@ -56,6 +75,7 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -84,6 +104,8 @@ dependencies {
     implementation(libs.room.paging)
     implementation(libs.paging.runtime)
     implementation(libs.paging.compose)
+    implementation(libs.openai.client)
+    implementation(libs.ktor.client.okhttp)
     ksp(libs.room.compiler)
     ksp(libs.koin.ksp.compiler)
 

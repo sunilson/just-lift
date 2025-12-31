@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager
 
@@ -44,7 +45,13 @@ fun DifficultySettingsSheet(
                     shape = SegmentedButtonDefaults.itemShape(index, VitruvianDeviceManager.EchoDifficulty.entries.size),
                     onClick = { onSelect(difficulty) },
                     selected = difficulty == selected,
-                    label = { Text(difficulty.toString()) }
+                    label = {
+                        Text(
+                            difficulty.toString(),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 )
             }
         }

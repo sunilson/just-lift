@@ -19,6 +19,7 @@ import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistory
 import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryUiModel
 import at.sunilson.justlift.features.workout.presentation.history.toDomain
 import at.sunilson.justlift.features.workout.presentation.history.toEntity
+import at.sunilson.justlift.features.workout.presentation.history.toExerciseEntity
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.cachedIn
@@ -26,11 +27,16 @@ import androidx.paging.insertSeparators
 import androidx.paging.map
 import android.widget.Toast
 import android.content.Context
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import com.juul.kable.ExperimentalApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -44,16 +50,22 @@ import java.text.DateFormat
 import kotlin.math.abs
 import kotlin.math.ceil
 
+import at.sunilson.justlift.features.workout.data.ExerciseRecognitionService
+import at.sunilson.justlift.features.workout.data.database.ExerciseEntity
+
+@OptIn(ExperimentalCoroutinesApi::class, ExperimentalApi::class)
 @KoinViewModel
-@OptIn(ExperimentalCoroutinesApi::class, com.juul.kable.ExperimentalApi::class)
 class WorkoutViewModel(
     private val vitruvianDeviceManager: VitruvianDeviceManager,
     private val soundPlayer: AppSoundPlayer,
     private val workoutSettingsRepository: WorkoutSettingsRepository,
     private val workoutHistoryDao: WorkoutHistoryDao,
     private val userRepository: UserRepository,
+    private val exerciseRecognitionService: ExerciseRecognitionService,
     private val context: Context
-) : ViewModel() {
+) : ViewModel(), DefaultLifecycleObserver {
+
+    private val isForeground = MutableStateFlow(false)
 
     val currentUserId = userRepository.currentUserId.stateIn(viewModelScope, SharingStarted.Eagerly, 1)
 
@@ -97,6 +109,7 @@ class WorkoutViewModel(
     private var countdownSoundStarted: Boolean = false
 
     init {
+        ProcessLifecycleOwner.get().lifecycle.addObserver(this)
         observeConnectedPeripheral()
         observeConnectedPeripheralState()
         observeAvailablePeripherals()
@@ -107,11 +120,26 @@ class WorkoutViewModel(
         observeCurrentUser()
     }
 
+    override fun onStart(owner: LifecycleOwner) {
+        isForeground.value = true
+    }
+
+    override fun onStop(owner: LifecycleOwner) {
+        isForeground.value = false
+    }
+
+    override fun onCleared() {
+        ProcessLifecycleOwner.get().lifecycle.removeObserver(this)
+        super.onCleared()
+    }
+
     private fun observeCurrentUser() {
         viewModelScope.launch {
-            currentUserId.collect { userId ->
+            combine(currentUserId, isForeground) { userId, foreground ->
+                userId
+            }.collect { userId ->
                 runCatching { workoutSettingsRepository.get(userId) }
-                    .onSuccess { settings ->
+                .onSuccess { settings ->
                         _state.update { s ->
                             s.copy(
                                 echoDifficulty = settings.echoDifficulty,
@@ -335,12 +363,23 @@ class WorkoutViewModel(
                         }
                         // Save to database when a workout just finished
                         if (prev != null && workoutState == null) {
-                            val entry = WorkoutHistoryEntry(
-                                workoutState = prev,
-                                timestampMillis = System.currentTimeMillis()
-                            )
                             viewModelScope.launch {
-                                workoutHistoryDao.insert(entry.toEntity(currentUserId.value))
+                                val userId = currentUserId.value
+                                Log.d("ExerciseRecognition", "Workout finished. Starting recognition for user $userId...")
+                                val guessedName = if (isForeground.value) {
+                                    exerciseRecognitionService.recognizeExercise(userId, prev)
+                                } else {
+                                    Log.d("ExerciseRecognition", "App in background, skipping immediate recognition.")
+                                    null
+                                }
+                                Log.d("ExerciseRecognition", "Guessed exercise name: $guessedName")
+                                val entry = WorkoutHistoryEntry(
+                                    workoutState = prev,
+                                    timestampMillis = System.currentTimeMillis(),
+                                    exerciseName = guessedName
+                                )
+                                workoutHistoryDao.insert(entry.toEntity(userId))
+                                Log.d("ExerciseRecognition", "Workout entry saved to history")
                             }
                         }
 
@@ -554,7 +593,7 @@ class WorkoutViewModel(
         val pauseStartTimestamp: Long? = null,
         val machineState: VitruvianDeviceManager.MachineState? = null,
         val useNoRepLimit: Boolean = true,
-        val echoDifficulty: VitruvianDeviceManager.EchoDifficulty = VitruvianDeviceManager.EchoDifficulty.HARDEST,
+        val echoDifficulty: VitruvianDeviceManager.EchoDifficulty = VitruvianDeviceManager.EchoDifficulty.WARMUP,
         val eccentricSliderValue: Float = 100.0f,
         val repetitionsSliderValue: Int = 8,
         val autoStartInSeconds: Int? = null,
@@ -566,7 +605,9 @@ class WorkoutViewModel(
         val showDifficultySheet: Boolean = false,
         val difficultySheetSelection: VitruvianDeviceManager.EchoDifficulty = echoDifficulty,
         val difficultySheetGain: Float = 1.0f,
-        val difficultySheetCap: Float = 50.0f
+        val difficultySheetCap: Float = 50.0f,
+        val showExerciseSelection: WorkoutHistoryEntry? = null,
+        val existingExercises: List<ExerciseEntity> = emptyList()
     )
 
     fun onHistoryClicked() {
@@ -589,7 +630,7 @@ class WorkoutViewModel(
                 )
             }
                 .getOrElse {
-                    // Fall back to EPIC max bounds or safe defaults if needed
+                    // Fall back to safe defaults if needed
                     at.sunilson.justlift.features.workout.data.ModeParameters(gain = 1.0f, capKg = 50.0f)
                 }
             _state.update {
@@ -668,6 +709,36 @@ class WorkoutViewModel(
             userRepository.switchToUser(nextUser)
             Toast.makeText(context, "Switched to User $nextUser", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    fun onEditExerciseName(entry: WorkoutHistoryEntry) {
+        viewModelScope.launch {
+            val exercises = workoutHistoryDao.getAllExercises(currentUserId.value)
+            _state.update { it.copy(showExerciseSelection = entry, existingExercises = exercises) }
+        }
+    }
+
+    fun onExerciseSelected(name: String) {
+        val entry = state.value.showExerciseSelection ?: return
+        viewModelScope.launch {
+            val userId = currentUserId.value
+            
+            // Only update fingerprint and history if the name was actually changed or set for the first time.
+            // This ensures that recognized exercises don't override their own fingerprints 
+            // unless the user manually intervenes and changes/confirms the name.
+            if (name != entry.exerciseName) {
+                // Update history entry
+                workoutHistoryDao.updateExerciseName(entry.id, name)
+                // Save as exercise fingerprint
+                workoutHistoryDao.insertExercise(entry.workoutState.toExerciseEntity(userId, name))
+            }
+            
+            _state.update { it.copy(showExerciseSelection = null) }
+        }
+    }
+
+    fun onDismissExerciseSelection() {
+        _state.update { it.copy(showExerciseSelection = null) }
     }
 
     companion object {

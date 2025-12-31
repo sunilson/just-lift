@@ -2,6 +2,7 @@ package at.sunilson.justlift.shared.audio
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.SoundPool
 import android.util.Log
 import at.sunilson.justlift.R
@@ -51,6 +52,12 @@ class AppSoundPlayer(private val context: Context) {
     fun stopAutoStartCountDown() = stop(KEY_START_COUNTDOWN)
     fun playDone() = play(KEY_DONE)
     fun playRepRegular() = play(KEY_REP_REGULAR, volume = 0.9f)
+
+    fun maximizeVolume() {
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxVolume, 0)
+    }
 
     private fun stop(key: String) {
         val streamId = playingIds.remove(key)

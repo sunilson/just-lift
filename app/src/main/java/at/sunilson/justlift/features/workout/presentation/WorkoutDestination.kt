@@ -42,6 +42,9 @@ fun WorkoutDestination(
         onClearSavedDeviceClicked = viewModel::onClearSavedDeviceClicked,
         onHistoryClicked = viewModel::onHistoryClicked,
         onDismissHistoryClicked = viewModel::onDismissHistoryClicked,
+        onEditExerciseName = viewModel::onEditExerciseName,
+        onExerciseSelected = viewModel::onExerciseSelected,
+        onDismissExerciseSelection = viewModel::onDismissExerciseSelection,
         onUserSwitchClicked = viewModel::onUserSwitchClicked
     )
 }

@@ -55,7 +55,7 @@ interface WorkoutSettingsRepository {
 }
 
 data class WorkoutSettings(
-    val echoDifficulty: VitruvianDeviceManager.EchoDifficulty = VitruvianDeviceManager.EchoDifficulty.HARDEST,
+    val echoDifficulty: VitruvianDeviceManager.EchoDifficulty = VitruvianDeviceManager.EchoDifficulty.WARMUP,
     val useNoRepLimit: Boolean = true,
     val repetitions: Int = 8,
     val eccentricPercentage: Float = 100f
@@ -246,10 +246,11 @@ class WorkoutSettingsRepositoryImpl(
         private fun floatKey(name: String) = floatPreferencesKey(name)
 
         private fun defaultModeParameters(d: VitruvianDeviceManager.EchoDifficulty): ModeParameters = when (d) {
+            VitruvianDeviceManager.EchoDifficulty.WARMUP -> ModeParameters(gain = 0.5f, capKg = 50.0f)
             VitruvianDeviceManager.EchoDifficulty.HARD -> ModeParameters(gain = 1.0f, capKg = 50.0f)
             VitruvianDeviceManager.EchoDifficulty.HARDER -> ModeParameters(gain = 1.25f, capKg = 40.0f)
             VitruvianDeviceManager.EchoDifficulty.HARDEST -> ModeParameters(gain = 1.667f, capKg = 30.0f)
-            VitruvianDeviceManager.EchoDifficulty.EPIC -> ModeParameters(gain = 3.333f, capKg = 15.0f)
+            // VitruvianDeviceManager.EchoDifficulty.EPIC -> ModeParameters(gain = 3.333f, capKg = 15.0f)
         }
     }
 }

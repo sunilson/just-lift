@@ -71,6 +71,7 @@ import at.sunilson.justlift.features.workout.presentation.history.HistoryOverlay
 import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryEntry
 import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryUiModel
 import androidx.compose.ui.zIndex
+import at.sunilson.justlift.features.workout.presentation.widgets.ExerciseSelectionSheet
 import at.sunilson.justlift.features.workout.presentation.widgets.DifficultySettingsSheet
 import androidx.paging.compose.LazyPagingItems
 
@@ -97,6 +98,9 @@ fun WorkoutScreen(
     onClearSavedDeviceClicked: () -> Unit = {},
     onHistoryClicked: () -> Unit = {},
     onDismissHistoryClicked: () -> Unit = {},
+    onEditExerciseName: (WorkoutHistoryEntry) -> Unit = {},
+    onExerciseSelected: (String) -> Unit = {},
+    onDismissExerciseSelection: () -> Unit = {},
     onUserSwitchClicked: () -> Unit = {}
 ) {
     val scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState = rememberStandardBottomSheetState(skipHiddenState = false))
@@ -274,9 +278,19 @@ fun WorkoutScreen(
         ModalBottomSheet(onDismissRequest = onDismissHistoryClicked) {
             HistoryOverlay(
                 history = pagedHistory,
-                onDismiss = onDismissHistoryClicked
+                onDismiss = onDismissHistoryClicked,
+                onEditExerciseName = onEditExerciseName
             )
         }
+    }
+
+    state.showExerciseSelection?.let { entry ->
+        ExerciseSelectionSheet(
+            existingExercises = state.existingExercises,
+            initialName = entry.exerciseName,
+            onExerciseSelected = onExerciseSelected,
+            onDismiss = onDismissExerciseSelection
+        )
     }
 }
 
