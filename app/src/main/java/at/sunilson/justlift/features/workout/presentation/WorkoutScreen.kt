@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -70,6 +72,7 @@ import kotlin.time.toDuration
 import at.sunilson.justlift.features.workout.presentation.history.HistoryOverlay
 import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryEntry
 import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryUiModel
+import at.sunilson.justlift.features.workout.presentation.history.TendenciesSheet
 import androidx.compose.ui.zIndex
 import at.sunilson.justlift.features.workout.presentation.widgets.ExerciseSelectionSheet
 import at.sunilson.justlift.features.workout.presentation.widgets.DifficultySettingsSheet
@@ -98,6 +101,10 @@ fun WorkoutScreen(
     onClearSavedDeviceClicked: () -> Unit = {},
     onHistoryClicked: () -> Unit = {},
     onDismissHistoryClicked: () -> Unit = {},
+    onShowTendenciesClicked: () -> Unit = {},
+    onDismissTendenciesClicked: () -> Unit = {},
+    onShowTendenciesInfoClicked: () -> Unit = {},
+    onDismissTendenciesInfoClicked: () -> Unit = {},
     onEditExerciseName: (WorkoutHistoryEntry) -> Unit = {},
     onExerciseSelected: (String) -> Unit = {},
     onDismissExerciseSelection: () -> Unit = {},
@@ -280,9 +287,59 @@ fun WorkoutScreen(
             HistoryOverlay(
                 history = pagedHistory,
                 onDismiss = onDismissHistoryClicked,
-                onEditExerciseName = onEditExerciseName
+                onEditExerciseName = onEditExerciseName,
+                onShowTendencies = onShowTendenciesClicked
             )
         }
+    }
+
+    if (state.showTendencies) {
+        ModalBottomSheet(onDismissRequest = onDismissTendenciesClicked) {
+            TendenciesSheet(
+                tendencies = state.tendencies,
+                onInfoClick = onShowTendenciesInfoClicked
+            )
+        }
+    }
+
+    if (state.showTendenciesInfo) {
+        AlertDialog(
+            onDismissRequest = onDismissTendenciesInfoClicked,
+            confirmButton = {
+                TextButton(onClick = onDismissTendenciesInfoClicked) {
+                    Text("Got it")
+                }
+            },
+            title = { Text("How Tendencies Work") },
+            text = {
+                Column {
+                    Text(
+                        "Tendencies show your progress over time for each exercise.",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        "Trend (kg/session):",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        "The main value shows your overall average change in force per session since you started. The smaller value below it shows the trend of only the last 3 sessions, helping you see if you're currently improving faster or slower than your long-term average.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        "Score (%):",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        "Visible in the history list. It compares your current workout's volume (reps × weight) to your historical average for that exercise. +10% means you performed 10% better than your usual average.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        )
     }
 
     state.showExerciseSelection?.let { entry ->

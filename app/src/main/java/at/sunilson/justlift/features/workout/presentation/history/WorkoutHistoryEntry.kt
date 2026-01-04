@@ -15,6 +15,14 @@ data class WorkoutHistoryEntry(
     val score: Double? = null
 )
 
+data class ExerciseTrend(
+    val exerciseName: String,
+    val avgUpwardTrend: Double,
+    val avgDownwardTrend: Double,
+    val recentUpwardTrend: Double = 0.0,
+    val recentDownwardTrend: Double = 0.0
+)
+
 sealed class WorkoutHistoryUiModel {
     data class Entry(val entry: WorkoutHistoryEntry) : WorkoutHistoryUiModel()
     data class Header(val date: String) : WorkoutHistoryUiModel()

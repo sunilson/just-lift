@@ -31,7 +31,8 @@ import at.sunilson.justlift.features.workout.presentation.widgets.WorkoutDataWid
 fun HistoryOverlay(
     history: LazyPagingItems<WorkoutHistoryUiModel>?,
     onDismiss: () -> Unit,
-    onEditExerciseName: (WorkoutHistoryEntry) -> Unit
+    onEditExerciseName: (WorkoutHistoryEntry) -> Unit,
+    onShowTendencies: () -> Unit
 ) {
     // Content - consume taps so they don't pass to scrim or underlying UI
     LazyColumn(
@@ -46,6 +47,10 @@ fun HistoryOverlay(
     ) {
         item {
             Text("Workout History", style = MaterialTheme.typography.headlineSmall)
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(onClick = onShowTendencies) {
+                Text("Show Tendencies")
+            }
             Spacer(modifier = Modifier.height(16.dp))
         }
 

@@ -16,6 +16,7 @@ import kotlinx.collections.immutable.toImmutableList
 import at.sunilson.justlift.features.workout.data.database.WorkoutHistoryDao
 import at.sunilson.justlift.features.user.data.UserRepository
 import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryEntry
+import at.sunilson.justlift.features.workout.presentation.history.ExerciseTrend
 import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryUiModel
 import at.sunilson.justlift.features.workout.presentation.history.toDomain
 import at.sunilson.justlift.features.workout.presentation.history.toEntity
@@ -617,7 +618,10 @@ class WorkoutViewModel(
         val difficultySheetGain: Float = 1.0f,
         val difficultySheetCap: Float = 50.0f,
         val showExerciseSelection: WorkoutHistoryEntry? = null,
-        val existingExercises: List<ExerciseEntity> = emptyList()
+        val existingExercises: List<ExerciseEntity> = emptyList(),
+        val showTendencies: Boolean = false,
+        val showTendenciesInfo: Boolean = false,
+        val tendencies: List<ExerciseTrend> = emptyList()
     )
 
     fun onHistoryClicked() {
@@ -626,6 +630,67 @@ class WorkoutViewModel(
 
     fun onDismissHistoryClicked() {
         _state.update { it.copy(showHistory = false) }
+    }
+
+    fun onShowTendenciesClicked() {
+        viewModelScope.launch {
+            val userId = currentUserId.value
+            val history = workoutHistoryDao.getAllHistory(userId)
+            val trends = history
+                .filter { it.exerciseName != null }
+                .groupBy { it.exerciseName!! to it.difficulty }
+                .map { (key, entries) ->
+                    val (name, difficulty) = key
+                    val sortedEntries = entries.sortedBy { it.timestampMillis }
+                    val upwardTrend = if (sortedEntries.size > 1) {
+                        (sortedEntries.last().averageUpwardForce - sortedEntries.first().averageUpwardForce) / (sortedEntries.size - 1)
+                    } else {
+                        0.0
+                    }
+                    val downwardTrend = if (sortedEntries.size > 1) {
+                        (sortedEntries.last().averageDownwardForce - sortedEntries.first().averageDownwardForce) / (sortedEntries.size - 1)
+                    } else {
+                        0.0
+                    }
+
+                    val recentUpwardTrend = if (sortedEntries.size > 1) {
+                        val recentEntries = sortedEntries.takeLast(3)
+                        (recentEntries.last().averageUpwardForce - recentEntries.first().averageUpwardForce) / (recentEntries.size - 1)
+                    } else {
+                        0.0
+                    }
+
+                    val recentDownwardTrend = if (sortedEntries.size > 1) {
+                        val recentEntries = sortedEntries.takeLast(3)
+                        (recentEntries.last().averageDownwardForce - recentEntries.first().averageDownwardForce) / (recentEntries.size - 1)
+                    } else {
+                        0.0
+                    }
+
+                    ExerciseTrend(
+                        exerciseName = "$name ($difficulty)",
+                        avgUpwardTrend = upwardTrend,
+                        avgDownwardTrend = downwardTrend,
+                        recentUpwardTrend = recentUpwardTrend,
+                        recentDownwardTrend = recentDownwardTrend
+                    )
+                }
+                .sortedByDescending { abs(it.avgUpwardTrend) + abs(it.avgDownwardTrend) }
+
+            _state.update { it.copy(showTendencies = true, tendencies = trends) }
+        }
+    }
+
+    fun onDismissTendenciesClicked() {
+        _state.update { it.copy(showTendencies = false) }
+    }
+
+    fun onShowTendenciesInfoClicked() {
+        _state.update { it.copy(showTendenciesInfo = true) }
+    }
+
+    fun onDismissTendenciesInfoClicked() {
+        _state.update { it.copy(showTendenciesInfo = false) }
     }
 
     // Difficulty settings bottom sheet events (tuning per-mode machine parameters)

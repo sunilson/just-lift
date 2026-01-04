@@ -35,6 +35,9 @@ interface WorkoutHistoryDao {
     """)
     fun getAllPaged(userId: Int): PagingSource<Int, WorkoutHistoryWithStats>
 
+    @Query("SELECT * FROM workout_history WHERE userId = :userId ORDER BY timestampMillis ASC")
+    suspend fun getAllHistory(userId: Int): List<WorkoutHistoryEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExercise(exercise: ExerciseEntity)
 
