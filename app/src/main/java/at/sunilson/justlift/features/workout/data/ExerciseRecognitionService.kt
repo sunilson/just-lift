@@ -36,7 +36,7 @@ class ExerciseRecognitionService(
         while (attempt <= maxAttempts) {
             try {
                 val chatCompletionRequest = ChatCompletionRequest(
-                    model = ModelId("gpt-5-mini"),
+                    model = ModelId("gpt-5.1"),
                     messages = listOf(
                         ChatMessage(
                             role = ChatRole.User,
@@ -84,6 +84,13 @@ class ExerciseRecognitionService(
             - Avg Downward Force (Right): ${"%.2f".format(workout.averageDownwardForceRight)}
             - Max Upward Force: ${"%.2f".format(workout.maxUpwardForce)}
             - Max Downward Force: ${"%.2f".format(workout.maxDownwardForce)}
+            - Avg Upward Rep Duration: ${"%.2f".format(workout.avgUpwardRepDurationMillis / 1000.0)}s
+            - Avg Downward Rep Duration: ${"%.2f".format(workout.avgDownwardRepDurationMillis / 1000.0)}s
+            - Avg Upward Peak Force Position: ${"%.3f".format(workout.avgUpwardPeakForcePosition)}
+            - Avg Downward Peak Force Position: ${"%.3f".format(workout.avgDownwardPeakForcePosition)}
+            - Avg Upward Max Velocity: ${"%.3f".format(workout.avgUpwardMaxVelocity)}
+            - Avg Downward Max Velocity: ${"%.3f".format(workout.avgDownwardMaxVelocity)}
+            - Avg Rest Duration: ${"%.2f".format(workout.avgRestDurationMillis / 1000.0)}s
             - Avg Peak Position Range (Left): ${"%.3f".format(workout.avgMinPositionLeft)} to ${"%.3f".format(workout.avgMaxPositionLeft)}
             - Avg Peak Position Range (Right): ${"%.3f".format(workout.avgMinPositionRight)} to ${"%.3f".format(workout.avgMaxPositionRight)}
             - Absolute Position Range (Left): ${"%.3f".format(workout.minPositionLeft)} to ${"%.3f".format(workout.maxPositionLeft)}
@@ -103,6 +110,13 @@ class ExerciseRecognitionService(
             val avgDownRight = entities.map { it.averageDownwardForceRight }.average()
             val maxUpForce = entities.map { it.maxUpwardForce }.maxOrNull() ?: 0.0
             val maxDownForce = entities.map { it.maxDownwardForce }.maxOrNull() ?: 0.0
+            val avgUpDuration = entities.map { it.avgUpwardRepDurationMillis }.average()
+            val avgDownDuration = entities.map { it.avgDownwardRepDurationMillis }.average()
+            val avgUpPeakForcePos = entities.map { it.avgUpwardPeakForcePosition }.average()
+            val avgDownPeakForcePos = entities.map { it.avgDownwardPeakForcePosition }.average()
+            val avgUpMaxVel = entities.map { it.avgUpwardMaxVelocity }.average()
+            val avgDownMaxVel = entities.map { it.avgDownwardMaxVelocity }.average()
+            val avgRestDur = entities.map { it.avgRestDurationMillis }.average()
             val minPosL = entities.map { it.minPositionLeft }.average()
             val maxPosL = entities.map { it.maxPositionLeft }.average()
             val minPosR = entities.map { it.minPositionRight }.average()
@@ -124,6 +138,13 @@ class ExerciseRecognitionService(
             - Avg Downward Force (Right): ${"%.2f".format(avgDownRight)}
             - Max Upward Force: ${"%.2f".format(maxUpForce)}
             - Max Downward Force: ${"%.2f".format(maxDownForce)}
+            - Avg Upward Rep Duration: ${"%.2f".format(avgUpDuration / 1000.0)}s
+            - Avg Downward Rep Duration: ${"%.2f".format(avgDownDuration / 1000.0)}s
+            - Avg Upward Peak Force Position: ${"%.3f".format(avgUpPeakForcePos)}
+            - Avg Downward Peak Force Position: ${"%.3f".format(avgDownPeakForcePos)}
+            - Avg Upward Max Velocity: ${"%.3f".format(avgUpMaxVel)}
+            - Avg Downward Max Velocity: ${"%.3f".format(avgDownMaxVel)}
+            - Avg Rest Duration: ${"%.2f".format(avgRestDur / 1000.0)}s
             - Avg Peak Position Range (Left): ${"%.3f".format(avgMinPosL)} to ${"%.3f".format(avgMaxPosL)}
             - Avg Peak Position Range (Right): ${"%.3f".format(avgMinPosR)} to ${"%.3f".format(avgMaxPosR)}
             - Absolute Position Range (Left): ${"%.3f".format(minPosL)} to ${"%.3f".format(maxPosL)}
@@ -144,11 +165,15 @@ class ExerciseRecognitionService(
             Instructions:
             1. FIRST, determine if one or both cables were used. Look at the position values (Left/Right) for both the fingerprint and the current data. If a cable's position remains at or near 0, it means it was not used. Match the cable usage (single vs double) before looking at other metrics.
             2. Compare the range of motion (positions), forces (up/down, left/right), rep counts, and timing.
-            3. Primary Indicator: The "Avg Peak Position Range" is the most characteristic part of an exercise as it averages the peak positions of all completed reps, ignoring startup and shutdown positions.
-            4. Secondary Indicator: The "Absolute Position Range" shows the total range reached including the very start and end.
-            5. Tertiary Indicator: Forces and rep counts can vary based on daily form and progress.
-            6. ALWAYS pick the best matching exercise from the provided fingerprints. DO NOT return "UNKNOWN" or any other text.
-            7. Return ONLY the exercise name, no other text.
+            3. The "Avg Upward Rep Duration" and "Avg Downward Rep Duration" are key for distinguishing exercises with different tempos (e.g., explosive concentric vs. slow eccentric).
+            4. The "Avg Upward Peak Force Position" and "Avg Downward Peak Force Position" indicate at what part of the range of motion the most force was applied (e.g., hard at the bottom vs. hard at the top).
+            5. The "Avg Upward Max Velocity" and "Avg Downward Max Velocity" help identify explosive or ballistic movements.
+            6. The "Avg Rest Duration" can help distinguish exercises that involve pauses at the top or bottom.
+            7. Primary Indicator: The "Avg Peak Position Range" is the most characteristic part of an exercise as it averages the peak positions of all completed reps, ignoring startup and shutdown positions.
+            8. Secondary Indicator: The "Absolute Position Range" shows the total range reached including the very start and end.
+            9. Tertiary Indicator: Forces and rep counts can vary based on daily form and progress.
+            10. ALWAYS pick the best matching exercise from the provided fingerprints. DO NOT return "UNKNOWN" or any other text.
+            11. Return ONLY the exercise name, no other text.
         """.trimIndent()
     }
 }

@@ -30,6 +30,13 @@ data class WorkoutHistoryEntity(
     val avgMaxPositionLeft: Double = 0.0,
     val avgMinPositionRight: Double = 0.0,
     val avgMaxPositionRight: Double = 0.0,
+    val avgUpwardRepDurationMillis: Double = 0.0,
+    val avgDownwardRepDurationMillis: Double = 0.0,
+    val avgUpwardPeakForcePosition: Double = 0.0,
+    val avgDownwardPeakForcePosition: Double = 0.0,
+    val avgUpwardMaxVelocity: Double = 0.0,
+    val avgDownwardMaxVelocity: Double = 0.0,
+    val avgRestDurationMillis: Double = 0.0,
     val exerciseName: String? = null,
     val difficulty: String = "WARMUP"
 )
@@ -63,5 +70,12 @@ data class ExerciseEntity(
     val avgMinPositionLeft: Double = 0.0,
     val avgMaxPositionLeft: Double = 0.0,
     val avgMinPositionRight: Double = 0.0,
-    val avgMaxPositionRight: Double = 0.0
+    val avgMaxPositionRight: Double = 0.0,
+    val avgUpwardRepDurationMillis: Double = 0.0,
+    val avgDownwardRepDurationMillis: Double = 0.0,
+    val avgUpwardPeakForcePosition: Double = 0.0,
+    val avgDownwardPeakForcePosition: Double = 0.0,
+    val avgUpwardMaxVelocity: Double = 0.0,
+    val avgDownwardMaxVelocity: Double = 0.0,
+    val avgRestDurationMillis: Double = 0.0
 )

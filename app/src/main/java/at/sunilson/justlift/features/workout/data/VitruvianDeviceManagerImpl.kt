@@ -71,18 +71,24 @@ class VitruvianDeviceManagerImpl(
                     val posLeft = (rawPosB / POSITION_NORMALIZATION_DIVISOR_MM).coerceIn(0.0, 1.0)
 
                     // Detect movement based on position deltas (filtering out tiny jitter)
+                    var deltaL = 0.0
+                    var deltaR = 0.0
                     val moving: Boolean = if (!session.prevPosInitialized) {
                         session.prevPosInitialized = true
                         session.prevPosLeft = posLeft
                         session.prevPosRight = posRight
                         false
                     } else {
-                        val deltaL = kotlin.math.abs(posLeft - session.prevPosLeft)
-                        val deltaR = kotlin.math.abs(posRight - session.prevPosRight)
+                        deltaL = kotlin.math.abs(posLeft - session.prevPosLeft)
+                        deltaR = kotlin.math.abs(posRight - session.prevPosRight)
                         session.prevPosLeft = posLeft
                         session.prevPosRight = posRight
                         (deltaL + deltaR) > MOVEMENT_DELTA_THRESHOLD
                     }
+
+                    // Track velocity (combined normalized pos change per second)
+                    val velocity = (deltaL + deltaR) / (MONITOR_INTERVAL_MS / 1000.0)
+                    if (velocity > session.repMaxVelocity) session.repMaxVelocity = velocity
 
                     // Throttled debug logging for diagnosing position scaling
                     val nowTs = System.currentTimeMillis()
@@ -104,24 +110,38 @@ class VitruvianDeviceManagerImpl(
                         val phase = session.currentPhase
                         if (phase != null) {
                             val combined = (leftKg + rightKg) / 2.0
-                            when (phase) {
-                                Phase.UP -> {
-                                    if (moving) {
+                            if (moving) {
+                                // First movement in a new phase identifies the end of the "rest" period
+                                if (session.repStartedMovingAt == null) {
+                                    val now = System.currentTimeMillis()
+                                    session.repStartedMovingAt = now
+                                    session.lastRepNotificationAtMillis?.let { lastNotif ->
+                                        session.avgRestDurationSum += (now - lastNotif)
+                                        session.avgRestDurationCount += 1
+                                    }
+                                }
+
+                                // Track peak force and its position for the current rep/phase
+                                if (combined > session.repPeakForce) {
+                                    session.repPeakForce = combined
+                                    session.repPeakForcePos = (posLeft + posRight) / 2.0
+                                }
+
+                                when (phase) {
+                                    Phase.UP -> {
                                         session.upForceSum += combined
                                         session.upForceLeftSum += leftKg
                                         session.upForceRightSum += rightKg
                                         session.upForceCount += 1
+                                        if (combined > session.maxUpForce) session.maxUpForce = combined
                                     }
-                                    if (combined > session.maxUpForce) session.maxUpForce = combined
-                                }
-                                Phase.DOWN -> {
-                                    if (moving) {
+                                    Phase.DOWN -> {
                                         session.downForceSum += combined
                                         session.downForceLeftSum += leftKg
                                         session.downForceRightSum += rightKg
                                         session.downForceCount += 1
+                                        if (combined > session.maxDownForce) session.maxDownForce = combined
                                     }
-                                    if (combined > session.maxDownForce) session.maxDownForce = combined
                                 }
                             }
 
@@ -154,7 +174,14 @@ class VitruvianDeviceManagerImpl(
                                 avgMinPositionLeft = if (session.minPosLeftCount > 0) session.minPosLeftSum / session.minPosLeftCount else 0.0,
                                 avgMaxPositionLeft = if (session.maxPosLeftCount > 0) session.maxPosLeftSum / session.maxPosLeftCount else 0.0,
                                 avgMinPositionRight = if (session.minPosRightCount > 0) session.minPosRightSum / session.minPosRightCount else 0.0,
-                                avgMaxPositionRight = if (session.maxPosRightCount > 0) session.maxPosRightSum / session.maxPosRightCount else 0.0
+                                avgMaxPositionRight = if (session.maxPosRightCount > 0) session.maxPosRightSum / session.maxPosRightCount else 0.0,
+                                avgUpwardRepDurationMillis = session.upDurAvg,
+                                avgDownwardRepDurationMillis = session.downDurAvg,
+                                avgUpwardPeakForcePosition = session.upPeakForcePosAvg,
+                                avgDownwardPeakForcePosition = session.downPeakForcePosAvg,
+                                avgUpwardMaxVelocity = session.upMaxVelocityAvg,
+                                avgDownwardMaxVelocity = session.downMaxVelocityAvg,
+                                avgRestDurationMillis = session.restDurationAvg
                             )
                         }
                     }
@@ -267,9 +294,52 @@ class VitruvianDeviceManagerImpl(
         var minPosRightCount: Long = 0,
         var maxPosRightSum: Double = 0.0,
         var maxPosRightCount: Long = 0,
+        var lastRepNotificationAtMillis: Long? = null,
+        var upwardDurationSum: Long = 0,
+        var upwardDurationCount: Long = 0,
+        var downwardDurationSum: Long = 0,
+        var downwardDurationCount: Long = 0,
+        var avgUpwardPeakForcePosSum: Double = 0.0,
+        var avgUpwardPeakForcePosCount: Long = 0,
+        var avgDownwardPeakForcePosSum: Double = 0.0,
+        var avgDownwardPeakForcePosCount: Long = 0,
+        var avgUpwardMaxVelocitySum: Double = 0.0,
+        var avgUpwardMaxVelocityCount: Long = 0,
+        var avgDownwardMaxVelocitySum: Double = 0.0,
+        var avgDownwardMaxVelocityCount: Long = 0,
+        var avgRestDurationSum: Long = 0,
+        var avgRestDurationCount: Long = 0,
+
+        // Per-rep trackers (reset on phase change)
+        var repPeakForce: Double = 0.0,
+        var repPeakForcePos: Double = 0.0,
+        var repMaxVelocity: Double = 0.0,
+        var repStartedMovingAt: Long? = null,
+
         var currentPhase: Phase? = null,
         var difficulty: VitruvianDeviceManager.EchoDifficulty = VitruvianDeviceManager.EchoDifficulty.WARMUP
-    )
+    ) {
+        val upDurAvg: Double
+            get() = if (upwardDurationCount > 0) upwardDurationSum.toDouble() / upwardDurationCount else 0.0
+
+        val downDurAvg: Double
+            get() = if (downwardDurationCount > 0) downwardDurationSum.toDouble() / downwardDurationCount else 0.0
+
+        val upPeakForcePosAvg: Double
+            get() = if (avgUpwardPeakForcePosCount > 0) avgUpwardPeakForcePosSum / avgUpwardPeakForcePosCount else 0.0
+
+        val downPeakForcePosAvg: Double
+            get() = if (avgDownwardPeakForcePosCount > 0) avgDownwardPeakForcePosSum / avgDownwardPeakForcePosCount else 0.0
+
+        val upMaxVelocityAvg: Double
+            get() = if (avgUpwardMaxVelocityCount > 0) avgUpwardMaxVelocitySum / avgUpwardMaxVelocityCount else 0.0
+
+        val downMaxVelocityAvg: Double
+            get() = if (avgDownwardMaxVelocityCount > 0) avgDownwardMaxVelocitySum / avgDownwardMaxVelocityCount else 0.0
+
+        val restDurationAvg: Double
+            get() = if (avgRestDurationCount > 0) avgRestDurationSum.toDouble() / avgRestDurationCount else 0.0
+    }
 
     private enum class Phase { UP, DOWN }
 
@@ -370,6 +440,25 @@ class VitruvianDeviceManagerImpl(
         session.minPosRightCount = 0
         session.maxPosRightSum = 0.0
         session.maxPosRightCount = 0
+        session.lastRepNotificationAtMillis = null
+        session.upwardDurationSum = 0
+        session.upwardDurationCount = 0
+        session.downwardDurationSum = 0
+        session.downwardDurationCount = 0
+        session.avgUpwardPeakForcePosSum = 0.0
+        session.avgUpwardPeakForcePosCount = 0
+        session.avgDownwardPeakForcePosSum = 0.0
+        session.avgDownwardPeakForcePosCount = 0
+        session.avgUpwardMaxVelocitySum = 0.0
+        session.avgUpwardMaxVelocityCount = 0
+        session.avgDownwardMaxVelocitySum = 0.0
+        session.avgDownwardMaxVelocityCount = 0
+        session.avgRestDurationSum = 0
+        session.avgRestDurationCount = 0
+        session.repPeakForce = 0.0
+        session.repPeakForcePos = 0.0
+        session.repMaxVelocity = 0.0
+        session.repStartedMovingAt = null
         session.currentPhase = null
         session.difficulty = difficulty
         // Reset movement detection so first tick doesn't count as movement by accident
@@ -408,6 +497,20 @@ class VitruvianDeviceManagerImpl(
                     session.halfRepNotifications += 1
                     val isUpwardCompletion = (session.halfRepNotifications % 2 == 1)
 
+                    val now = System.currentTimeMillis()
+                    val lastTs = session.lastRepNotificationAtMillis
+                    if (lastTs != null) {
+                        val duration = now - lastTs
+                        if (isUpwardCompletion) {
+                            session.upwardDurationSum += duration
+                            session.upwardDurationCount += 1
+                        } else {
+                            session.downwardDurationSum += duration
+                            session.downwardDurationCount += 1
+                        }
+                    }
+                    session.lastRepNotificationAtMillis = now
+
                     // During calibration, perform 3 reps counted at the TOP (upward completion)
                     // These calibration reps do not contribute to normal rep totals
                     if (session.calibrationRepsCompleted < CALIBRATION_REPS) {
@@ -426,18 +529,40 @@ class VitruvianDeviceManagerImpl(
                     }
 
                     if (isUpwardCompletion) {
+                        // Finished UP phase
+                        if (session.repPeakForce > 0) {
+                            session.avgUpwardPeakForcePosSum += session.repPeakForcePos
+                            session.avgUpwardPeakForcePosCount += 1
+                        }
+                        session.avgUpwardMaxVelocitySum += session.repMaxVelocity
+                        session.avgUpwardMaxVelocityCount += 1
+
                         // Top reached -> increment upward counter (shown to user)
                         session.upwardReps += 1
                         Log.d("ExerciseRecognition", "Upward rep completed: ${session.upwardReps}")
                         // Switch to DOWN phase after reaching the top
                         session.currentPhase = Phase.DOWN
                     } else {
+                        // Finished DOWN phase
+                        if (session.repPeakForce > 0) {
+                            session.avgDownwardPeakForcePosSum += session.repPeakForcePos
+                            session.avgDownwardPeakForcePosCount += 1
+                        }
+                        session.avgDownwardMaxVelocitySum += session.repMaxVelocity
+                        session.avgDownwardMaxVelocityCount += 1
+
                         // Bottom reached -> increment downward counter and check for auto-stop
                         session.downwardReps += 1
                         Log.d("ExerciseRecognition", "Downward rep completed: ${session.downwardReps}")
                         // Switch to UP phase after reaching the bottom
                         session.currentPhase = Phase.UP
                     }
+
+                    // Reset per-rep trackers
+                    session.repPeakForce = 0.0
+                    session.repPeakForcePos = 0.0
+                    session.repMaxVelocity = 0.0
+                    session.repStartedMovingAt = null
 
                     // Record positions at rep completion to calculate average peak positions
                     val machineState = session.machineState.value
@@ -467,7 +592,14 @@ class VitruvianDeviceManagerImpl(
                         avgMinPositionLeft = avgMinL,
                         avgMaxPositionLeft = avgMaxL,
                         avgMinPositionRight = avgMinR,
-                        avgMaxPositionRight = avgMaxR
+                        avgMaxPositionRight = avgMaxR,
+                        avgUpwardRepDurationMillis = session.upDurAvg,
+                        avgDownwardRepDurationMillis = session.downDurAvg,
+                        avgUpwardPeakForcePosition = session.upPeakForcePosAvg,
+                        avgDownwardPeakForcePosition = session.downPeakForcePosAvg,
+                        avgUpwardMaxVelocity = session.upMaxVelocityAvg,
+                        avgDownwardMaxVelocity = session.downMaxVelocityAvg,
+                        avgRestDurationMillis = session.restDurationAvg
                     )
                     session.state.value = updated
 

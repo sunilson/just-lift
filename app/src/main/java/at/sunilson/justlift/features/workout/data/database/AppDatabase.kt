@@ -5,11 +5,41 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [WorkoutHistoryEntity::class, ExerciseEntity::class], version = 7, exportSchema = false)
+@Database(entities = [WorkoutHistoryEntity::class, ExerciseEntity::class], version = 9, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun workoutHistoryDao(): WorkoutHistoryDao
 
     companion object {
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Add columns to workout_history
+                db.execSQL("ALTER TABLE workout_history ADD COLUMN avgUpwardPeakForcePosition REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE workout_history ADD COLUMN avgDownwardPeakForcePosition REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE workout_history ADD COLUMN avgUpwardMaxVelocity REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE workout_history ADD COLUMN avgDownwardMaxVelocity REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE workout_history ADD COLUMN avgRestDurationMillis REAL NOT NULL DEFAULT 0.0")
+
+                // Add columns to exercises
+                db.execSQL("ALTER TABLE exercises ADD COLUMN avgUpwardPeakForcePosition REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE exercises ADD COLUMN avgDownwardPeakForcePosition REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE exercises ADD COLUMN avgUpwardMaxVelocity REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE exercises ADD COLUMN avgDownwardMaxVelocity REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE exercises ADD COLUMN avgRestDurationMillis REAL NOT NULL DEFAULT 0.0")
+            }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Add columns to workout_history
+                db.execSQL("ALTER TABLE workout_history ADD COLUMN avgUpwardRepDurationMillis REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE workout_history ADD COLUMN avgDownwardRepDurationMillis REAL NOT NULL DEFAULT 0.0")
+
+                // Add columns to exercises
+                db.execSQL("ALTER TABLE exercises ADD COLUMN avgUpwardRepDurationMillis REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE exercises ADD COLUMN avgDownwardRepDurationMillis REAL NOT NULL DEFAULT 0.0")
+            }
+        }
+
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE workout_history ADD COLUMN userId INTEGER NOT NULL DEFAULT 1")

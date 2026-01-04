@@ -64,6 +64,13 @@ fun WorkoutHistoryEntity.toDomain() = WorkoutHistoryEntry(
         avgMaxPositionLeft = avgMaxPositionLeft,
         avgMinPositionRight = avgMinPositionRight,
         avgMaxPositionRight = avgMaxPositionRight,
+        avgUpwardRepDurationMillis = avgUpwardRepDurationMillis,
+        avgDownwardRepDurationMillis = avgDownwardRepDurationMillis,
+        avgUpwardPeakForcePosition = avgUpwardPeakForcePosition,
+        avgDownwardPeakForcePosition = avgDownwardPeakForcePosition,
+        avgUpwardMaxVelocity = avgUpwardMaxVelocity,
+        avgDownwardMaxVelocity = avgDownwardMaxVelocity,
+        avgRestDurationMillis = avgRestDurationMillis,
         difficulty = VitruvianDeviceManager.EchoDifficulty.valueOf(difficulty)
     )
 )
@@ -93,6 +100,13 @@ fun WorkoutHistoryEntry.toEntity(userId: Int) = WorkoutHistoryEntity(
     avgMaxPositionLeft = workoutState.avgMaxPositionLeft,
     avgMinPositionRight = workoutState.avgMinPositionRight,
     avgMaxPositionRight = workoutState.avgMaxPositionRight,
+    avgUpwardRepDurationMillis = workoutState.avgUpwardRepDurationMillis,
+    avgDownwardRepDurationMillis = workoutState.avgDownwardRepDurationMillis,
+    avgUpwardPeakForcePosition = workoutState.avgUpwardPeakForcePosition,
+    avgDownwardPeakForcePosition = workoutState.avgDownwardPeakForcePosition,
+    avgUpwardMaxVelocity = workoutState.avgUpwardMaxVelocity,
+    avgDownwardMaxVelocity = workoutState.avgDownwardMaxVelocity,
+    avgRestDurationMillis = workoutState.avgRestDurationMillis,
     exerciseName = exerciseName,
     difficulty = workoutState.difficulty.name
 )
@@ -121,7 +135,14 @@ fun VitruvianDeviceManager.WorkoutState.toExerciseEntity(userId: Int, name: Stri
     avgMinPositionLeft = avgMinPositionLeft,
     avgMaxPositionLeft = avgMaxPositionLeft,
     avgMinPositionRight = avgMinPositionRight,
-    avgMaxPositionRight = avgMaxPositionRight
+    avgMaxPositionRight = avgMaxPositionRight,
+    avgUpwardRepDurationMillis = avgUpwardRepDurationMillis,
+    avgDownwardRepDurationMillis = avgDownwardRepDurationMillis,
+    avgUpwardPeakForcePosition = avgUpwardPeakForcePosition,
+    avgDownwardPeakForcePosition = avgDownwardPeakForcePosition,
+    avgUpwardMaxVelocity = avgUpwardMaxVelocity,
+    avgDownwardMaxVelocity = avgDownwardMaxVelocity,
+    avgRestDurationMillis = avgRestDurationMillis
 )
 
 fun ExerciseEntity.averageWith(workoutState: VitruvianDeviceManager.WorkoutState): ExerciseEntity {
@@ -150,6 +171,13 @@ fun ExerciseEntity.averageWith(workoutState: VitruvianDeviceManager.WorkoutState
         avgMinPositionLeft = (avgMinPositionLeft + workoutState.avgMinPositionLeft) / 2.0,
         avgMaxPositionLeft = (avgMaxPositionLeft + workoutState.avgMaxPositionLeft) / 2.0,
         avgMinPositionRight = (avgMinPositionRight + workoutState.avgMinPositionRight) / 2.0,
-        avgMaxPositionRight = (avgMaxPositionRight + workoutState.avgMaxPositionRight) / 2.0
+        avgMaxPositionRight = (avgMaxPositionRight + workoutState.avgMaxPositionRight) / 2.0,
+        avgUpwardRepDurationMillis = (avgUpwardRepDurationMillis + workoutState.avgUpwardRepDurationMillis) / 2.0,
+        avgDownwardRepDurationMillis = (avgDownwardRepDurationMillis + workoutState.avgDownwardRepDurationMillis) / 2.0,
+        avgUpwardPeakForcePosition = (avgUpwardPeakForcePosition + workoutState.avgUpwardPeakForcePosition) / 2.0,
+        avgDownwardPeakForcePosition = (avgDownwardPeakForcePosition + workoutState.avgDownwardPeakForcePosition) / 2.0,
+        avgUpwardMaxVelocity = (avgUpwardMaxVelocity + workoutState.avgUpwardMaxVelocity) / 2.0,
+        avgDownwardMaxVelocity = (avgDownwardMaxVelocity + workoutState.avgDownwardMaxVelocity) / 2.0,
+        avgRestDurationMillis = (avgRestDurationMillis + workoutState.avgRestDurationMillis) / 2.0
     )
 }

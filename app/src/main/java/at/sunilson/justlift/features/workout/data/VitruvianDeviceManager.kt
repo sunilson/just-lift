@@ -73,6 +73,13 @@ interface VitruvianDeviceManager {
         val avgMaxPositionLeft: Double = 0.0,
         val avgMinPositionRight: Double = 0.0,
         val avgMaxPositionRight: Double = 0.0,
+        val avgUpwardRepDurationMillis: Double = 0.0,
+        val avgDownwardRepDurationMillis: Double = 0.0,
+        val avgUpwardPeakForcePosition: Double = 0.0,
+        val avgDownwardPeakForcePosition: Double = 0.0,
+        val avgUpwardMaxVelocity: Double = 0.0,
+        val avgDownwardMaxVelocity: Double = 0.0,
+        val avgRestDurationMillis: Double = 0.0,
         val difficulty: EchoDifficulty = EchoDifficulty.WARMUP
     )
 
