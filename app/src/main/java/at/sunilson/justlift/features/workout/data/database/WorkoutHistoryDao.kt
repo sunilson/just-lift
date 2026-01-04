@@ -44,6 +44,9 @@ interface WorkoutHistoryDao {
     @Query("SELECT * FROM exercises WHERE userId = :userId")
     suspend fun getAllExercises(userId: Int): List<ExerciseEntity>
 
+    @Query("SELECT DISTINCT name FROM exercises")
+    suspend fun getAllExerciseNames(): List<String>
+
     @Query("SELECT * FROM exercises WHERE userId = :userId AND name = :name AND difficulty = :difficulty LIMIT 1")
     suspend fun getExercise(userId: Int, name: String, difficulty: String): ExerciseEntity?
 

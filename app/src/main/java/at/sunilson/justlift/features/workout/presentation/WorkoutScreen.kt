@@ -344,7 +344,7 @@ fun WorkoutScreen(
 
     state.showExerciseSelection?.let { entry ->
         ExerciseSelectionSheet(
-            existingExercises = state.existingExercises,
+            exerciseNameSuggestions = state.exerciseNameSuggestions,
             initialName = entry.exerciseName,
             onExerciseSelected = onExerciseSelected,
             onDismiss = onDismissExerciseSelection

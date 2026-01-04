@@ -618,7 +618,7 @@ class WorkoutViewModel(
         val difficultySheetGain: Float = 1.0f,
         val difficultySheetCap: Float = 50.0f,
         val showExerciseSelection: WorkoutHistoryEntry? = null,
-        val existingExercises: List<ExerciseEntity> = emptyList(),
+        val exerciseNameSuggestions: List<String> = emptyList(),
         val showTendencies: Boolean = false,
         val showTendenciesInfo: Boolean = false,
         val tendencies: List<ExerciseTrend> = emptyList()
@@ -788,8 +788,8 @@ class WorkoutViewModel(
 
     fun onEditExerciseName(entry: WorkoutHistoryEntry) {
         viewModelScope.launch {
-            val exercises = workoutHistoryDao.getAllExercises(currentUserId.value)
-            _state.update { it.copy(showExerciseSelection = entry, existingExercises = exercises) }
+            val exercises = workoutHistoryDao.getAllExerciseNames()
+            _state.update { it.copy(showExerciseSelection = entry, exerciseNameSuggestions = exercises) }
         }
     }
 

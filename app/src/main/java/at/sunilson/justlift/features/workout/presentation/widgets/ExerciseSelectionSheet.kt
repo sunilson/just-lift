@@ -10,21 +10,18 @@ import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import at.sunilson.justlift.features.workout.data.database.ExerciseEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExerciseSelectionSheet(
-    existingExercises: List<ExerciseEntity>,
+    exerciseNameSuggestions: List<String>,
     initialName: String? = null,
     onExerciseSelected: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     var text by remember { mutableStateOf(initialName ?: "") }
     var expanded by remember { mutableStateOf(false) }
-    val uniqueExerciseNames = remember(existingExercises) {
-        existingExercises.map { it.name }.distinct()
-    }
+    val uniqueExerciseNames = exerciseNameSuggestions
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
