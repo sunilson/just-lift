@@ -20,6 +20,7 @@ import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistory
 import at.sunilson.justlift.features.workout.presentation.history.toDomain
 import at.sunilson.justlift.features.workout.presentation.history.toEntity
 import at.sunilson.justlift.features.workout.presentation.history.toExerciseEntity
+import at.sunilson.justlift.features.workout.presentation.history.averageWith
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.cachedIn
@@ -738,8 +739,15 @@ class WorkoutViewModel(
             if (name != entry.exerciseName) {
                 // Update history entry
                 workoutHistoryDao.updateExerciseName(entry.id, name)
-                // Save as exercise fingerprint
-                workoutHistoryDao.insertExercise(entry.workoutState.toExerciseEntity(userId, name))
+                
+                // Save as exercise fingerprint (average with existing if present)
+                val existing = workoutHistoryDao.getExercise(userId, name, entry.workoutState.difficulty.name)
+                val exerciseEntity = if (existing != null) {
+                    existing.averageWith(entry.workoutState)
+                } else {
+                    entry.workoutState.toExerciseEntity(userId, name)
+                }
+                workoutHistoryDao.insertExercise(exerciseEntity)
             }
             
             _state.update { it.copy(showExerciseSelection = null) }

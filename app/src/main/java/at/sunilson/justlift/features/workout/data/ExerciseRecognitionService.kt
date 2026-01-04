@@ -133,7 +133,7 @@ class ExerciseRecognitionService(
 
         return """
             You are a fitness expert. Based on the provided exercise "fingerprints" (stats), identify which exercise the "Current Workout Data" matches best.
-            Note: All provided fingerprints have the same difficulty as the current workout.
+            Note: All provided fingerprints have the same difficulty as the current workout. These fingerprints represent an average of the user's data for each exercise, so slight variations in form or strength are already factored in.
             
             Existing Exercises Fingerprints:
             $exercisesData
@@ -142,12 +142,13 @@ class ExerciseRecognitionService(
             $workoutData
             
             Instructions:
-            1. Compare the range of motion (positions), forces (up/down, left/right), rep counts, and timing.
-            2. Primary Indicator: The "Avg Peak Position Range" is the most characteristic part of an exercise as it averages the peak positions of all completed reps, ignoring startup and shutdown positions.
-            3. Secondary Indicator: The "Absolute Position Range" shows the total range reached including the very start and end.
-            4. Tertiary Indicator: Forces and rep counts can vary based on daily form and progress.
-            5. ALWAYS pick the best matching exercise from the provided fingerprints. DO NOT return "UNKNOWN" or any other text.
-            6. Return ONLY the exercise name, no other text.
+            1. FIRST, determine if one or both cables were used. Look at the position values (Left/Right) for both the fingerprint and the current data. If a cable's position remains at or near 0, it means it was not used. Match the cable usage (single vs double) before looking at other metrics.
+            2. Compare the range of motion (positions), forces (up/down, left/right), rep counts, and timing.
+            3. Primary Indicator: The "Avg Peak Position Range" is the most characteristic part of an exercise as it averages the peak positions of all completed reps, ignoring startup and shutdown positions.
+            4. Secondary Indicator: The "Absolute Position Range" shows the total range reached including the very start and end.
+            5. Tertiary Indicator: Forces and rep counts can vary based on daily form and progress.
+            6. ALWAYS pick the best matching exercise from the provided fingerprints. DO NOT return "UNKNOWN" or any other text.
+            7. Return ONLY the exercise name, no other text.
         """.trimIndent()
     }
 }

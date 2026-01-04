@@ -4,6 +4,7 @@ import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager
 import at.sunilson.justlift.features.workout.data.database.WorkoutHistoryEntity
 import at.sunilson.justlift.features.workout.data.database.ExerciseEntity
 import at.sunilson.justlift.features.workout.data.database.WorkoutHistoryWithStats
+import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 
 data class WorkoutHistoryEntry(
@@ -114,3 +115,33 @@ fun VitruvianDeviceManager.WorkoutState.toExerciseEntity(userId: Int, name: Stri
     avgMinPositionRight = avgMinPositionRight,
     avgMaxPositionRight = avgMaxPositionRight
 )
+
+fun ExerciseEntity.averageWith(workoutState: VitruvianDeviceManager.WorkoutState): ExerciseEntity {
+    return copy(
+        calibratingRepsCompleted = ((calibratingRepsCompleted + workoutState.calibratingRepsCompleted) / 2.0).roundToInt(),
+        maxReps = if (maxReps != null && workoutState.maxReps != null) {
+            ((maxReps + workoutState.maxReps) / 2.0).roundToInt()
+        } else {
+            maxReps ?: workoutState.maxReps
+        },
+        upwardRepetitionsCompleted = ((upwardRepetitionsCompleted + workoutState.upwardRepetitionsCompleted) / 2.0).roundToInt(),
+        downwardRepetitionsCompleted = ((downwardRepetitionsCompleted + workoutState.downwardRepetitionsCompleted) / 2.0).roundToInt(),
+        timeElapsedMillis = ((timeElapsedMillis + workoutState.timeElapsed.inWholeMilliseconds) / 2.0).toLong(),
+        averageUpwardForce = (averageUpwardForce + workoutState.averageUpwardForce) / 2.0,
+        averageDownwardForce = (averageDownwardForce + workoutState.averageDownwardForce) / 2.0,
+        maxUpwardForce = (maxUpwardForce + workoutState.maxUpwardForce) / 2.0,
+        maxDownwardForce = (maxDownwardForce + workoutState.maxDownwardForce) / 2.0,
+        averageUpwardForceLeft = (averageUpwardForceLeft + workoutState.averageUpwardForceLeft) / 2.0,
+        averageUpwardForceRight = (averageUpwardForceRight + workoutState.averageUpwardForceRight) / 2.0,
+        averageDownwardForceLeft = (averageDownwardForceLeft + workoutState.averageDownwardForceLeft) / 2.0,
+        averageDownwardForceRight = (averageDownwardForceRight + workoutState.averageDownwardForceRight) / 2.0,
+        minPositionLeft = (minPositionLeft + workoutState.minPositionLeft) / 2.0,
+        maxPositionLeft = (maxPositionLeft + workoutState.maxPositionLeft) / 2.0,
+        minPositionRight = (minPositionRight + workoutState.minPositionRight) / 2.0,
+        maxPositionRight = (maxPositionRight + workoutState.maxPositionRight) / 2.0,
+        avgMinPositionLeft = (avgMinPositionLeft + workoutState.avgMinPositionLeft) / 2.0,
+        avgMaxPositionLeft = (avgMaxPositionLeft + workoutState.avgMaxPositionLeft) / 2.0,
+        avgMinPositionRight = (avgMinPositionRight + workoutState.avgMinPositionRight) / 2.0,
+        avgMaxPositionRight = (avgMaxPositionRight + workoutState.avgMaxPositionRight) / 2.0
+    )
+}
