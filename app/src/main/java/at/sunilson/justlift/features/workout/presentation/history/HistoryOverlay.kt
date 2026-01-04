@@ -100,6 +100,15 @@ fun HistoryOverlay(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.tertiary
                                 )
+                                entry.score?.let { score ->
+                                    val formattedScore = (if (score >= 0) "+" else "") + "%.1f".format(score) + "%"
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        formattedScore,
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                        color = if (score >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                    )
+                                }
                                 IconButton(onClick = { onEditExerciseName(entry) }) {
                                     Icon(
                                         Icons.Default.Edit,

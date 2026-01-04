@@ -3,18 +3,30 @@ package at.sunilson.justlift.features.workout.presentation.history
 import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager
 import at.sunilson.justlift.features.workout.data.database.WorkoutHistoryEntity
 import at.sunilson.justlift.features.workout.data.database.ExerciseEntity
+import at.sunilson.justlift.features.workout.data.database.WorkoutHistoryWithStats
 import kotlin.time.Duration.Companion.milliseconds
 
 data class WorkoutHistoryEntry(
     val id: Long = 0,
     val workoutState: VitruvianDeviceManager.WorkoutState,
     val timestampMillis: Long,
-    val exerciseName: String? = null
+    val exerciseName: String? = null,
+    val score: Double? = null
 )
 
 sealed class WorkoutHistoryUiModel {
     data class Entry(val entry: WorkoutHistoryEntry) : WorkoutHistoryUiModel()
     data class Header(val date: String) : WorkoutHistoryUiModel()
+}
+
+fun WorkoutHistoryWithStats.toDomain(): WorkoutHistoryEntry {
+    val domain = entity.toDomain()
+    val averageVolumeOfOthers = averageVolumeOfOthers ?: return domain
+    if (averageVolumeOfOthers <= 0) return domain
+
+    val currentVolume = (entity.upwardRepetitionsCompleted * entity.averageUpwardForce) + (entity.downwardRepetitionsCompleted * entity.averageDownwardForce)
+    val score = ((currentVolume - averageVolumeOfOthers) / averageVolumeOfOthers) * 100.0
+    return domain.copy(score = score)
 }
 
 fun WorkoutHistoryEntity.toDomain() = WorkoutHistoryEntry(

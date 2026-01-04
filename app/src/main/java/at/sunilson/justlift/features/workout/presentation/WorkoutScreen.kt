@@ -235,7 +235,8 @@ fun WorkoutScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                         WorkoutDataWidget(
                             workoutState = previous,
-                            machineState = null
+                            machineState = null,
+                            exerciseName = state.previousWorkoutExerciseName
                         )
                     }
                 }

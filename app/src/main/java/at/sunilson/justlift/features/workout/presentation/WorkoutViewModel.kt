@@ -361,6 +361,12 @@ class WorkoutViewModel(
                             prev != null && workoutState == null -> prev
                             else -> state.previousWorkoutState
                         }
+
+                        val updatedExerciseName = when {
+                            prev != null && workoutState == null -> null
+                            else -> state.previousWorkoutExerciseName
+                        }
+
                         // Save to database when a workout just finished
                         if (prev != null && workoutState == null) {
                             viewModelScope.launch {
@@ -373,6 +379,7 @@ class WorkoutViewModel(
                                     null
                                 }
                                 Log.d("ExerciseRecognition", "Guessed exercise name: $guessedName")
+                                _state.update { it.copy(previousWorkoutExerciseName = guessedName) }
                                 val entry = WorkoutHistoryEntry(
                                     workoutState = prev,
                                     timestampMillis = System.currentTimeMillis(),
@@ -393,6 +400,7 @@ class WorkoutViewModel(
                         state.copy(
                             workoutState = workoutState,
                             previousWorkoutState = updatedPrevious,
+                            previousWorkoutExerciseName = updatedExerciseName,
                             pauseStartTimestamp = updatedPauseStart
                         )
                     }
@@ -589,6 +597,7 @@ class WorkoutViewModel(
         val availablePeripherals: ImmutableList<Peripheral> = persistentListOf(),
         val workoutState: VitruvianDeviceManager.WorkoutState? = null,
         val previousWorkoutState: VitruvianDeviceManager.WorkoutState? = null,
+        val previousWorkoutExerciseName: String? = null,
         // Timestamp when pause started (ms since epoch). Null initially and cleared on workout start.
         val pauseStartTimestamp: Long? = null,
         val machineState: VitruvianDeviceManager.MachineState? = null,

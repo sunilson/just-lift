@@ -60,12 +60,23 @@ private fun DataRow(label: String, value: String) {
 fun WorkoutDataWidget(
     modifier: Modifier = Modifier,
     workoutState: VitruvianDeviceManager.WorkoutState,
-    machineState: VitruvianDeviceManager.MachineState?
+    machineState: VitruvianDeviceManager.MachineState?,
+    exerciseName: String? = null
 ) {
     Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         // Provide a larger default text style within this widget for better readability
         ProvideTextStyle(MaterialTheme.typography.titleLarge) {
             Spacer(modifier = Modifier.height(16.dp))
+
+            exerciseName?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
             // Show auto-stop countdown only for the live workout (not for previous set rendering)
             AnimatedVisibility(workoutState.autoStopInSeconds != null && machineState != null) {
                 Column {
@@ -169,6 +180,34 @@ fun WorkoutDataWidget(
 
     }
 
+}
+
+@PreviewLightDark
+@Composable
+private fun WorkoutDataWidgetWithExercisePreview() {
+    JustLiftTheme {
+        Box(
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.background)
+                .padding(16.dp)
+        ) {
+            WorkoutDataWidget(
+                exerciseName = "Bicep Curls",
+                workoutState = VitruvianDeviceManager.WorkoutState(
+                    calibratingRepsCompleted = 3,
+                    maxReps = null,
+                    upwardRepetitionsCompleted = 12,
+                    downwardRepetitionsCompleted = 12,
+                    timeElapsed = 45.toDuration(DurationUnit.SECONDS),
+                    averageUpwardForce = 25.0,
+                    averageDownwardForce = 20.0,
+                    maxUpwardForce = 35.0,
+                    maxDownwardForce = 30.0
+                ),
+                machineState = null
+            )
+        }
+    }
 }
 
 @PreviewLightDark
