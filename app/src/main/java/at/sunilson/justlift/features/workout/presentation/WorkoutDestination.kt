@@ -26,7 +26,6 @@ fun WorkoutDestination(
         currentUserId = currentUserId,
         pagedHistory = pagedHistory,
         onDeviceSelected = viewModel::onDeviceSelected,
-        onUseNoRepLimitChange = viewModel::onUseNoRepLimitChange,
         onEccentricSliderValueChange = viewModel::onEccentricSliderValueChange,
         onRepetitionsSliderValueChange = viewModel::onRepetitionsSliderValueChange,
         onEchoDifficultyChange = viewModel::onEchoDifficultyChange,

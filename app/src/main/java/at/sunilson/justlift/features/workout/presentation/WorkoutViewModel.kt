@@ -109,6 +109,7 @@ class WorkoutViewModel(
     private var lastAutoStartAt: Long = 0L
     private var autoStartTickerJob: kotlinx.coroutines.Job? = null
     private var countdownSoundStarted: Boolean = false
+    private var finishSoundPlayed: Boolean = false
 
     init {
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
@@ -145,7 +146,6 @@ class WorkoutViewModel(
                         _state.update { s ->
                             s.copy(
                                 echoDifficulty = settings.echoDifficulty,
-                                useNoRepLimit = settings.useNoRepLimit,
                                 repetitionsSliderValue = settings.repetitions,
                                 eccentricSliderValue = settings.eccentricPercentage,
                                 difficultySheetSelection = settings.echoDifficulty
@@ -231,10 +231,6 @@ class WorkoutViewModel(
         persistCurrentSettings()
     }
 
-    fun onUseNoRepLimitChange(useNoRepLimit: Boolean) {
-        _state.update { it.copy(useNoRepLimit = useNoRepLimit) }
-        persistCurrentSettings()
-    }
 
     fun onEchoDifficultyChange(difficulty: VitruvianDeviceManager.EchoDifficulty) {
         _state.update { it.copy(echoDifficulty = difficulty, difficultySheetSelection = difficulty) }
@@ -250,7 +246,6 @@ class WorkoutViewModel(
                 currentUserId.value,
                 WorkoutSettings(
                     echoDifficulty = s.echoDifficulty,
-                    useNoRepLimit = s.useNoRepLimit,
                     repetitions = s.repetitionsSliderValue,
                     eccentricPercentage = s.eccentricSliderValue
                 )
@@ -346,12 +341,23 @@ class WorkoutViewModel(
                 .collect { workoutState ->
                     val prev = lastWorkoutState
                     when {
-                        prev == null && workoutState != null -> soundPlayer.playStart()
+                        prev == null && workoutState != null -> {
+                            soundPlayer.playStart()
+                            finishSoundPlayed = false
+                        }
                         prev != null && workoutState == null -> soundPlayer.playDone()
                         prev != null && workoutState != null -> {
                             val repsIncreased = workoutState.upwardRepetitionsCompleted > prev.upwardRepetitionsCompleted
                             val calibratingIncreased = workoutState.calibratingRepsCompleted > prev.calibratingRepsCompleted
-                            if (repsIncreased || (calibratingIncreased && workoutState.calibratingRepsCompleted > 0)) {
+                            if (repsIncreased) {
+                                val maxReps = workoutState.maxReps
+                                if (maxReps != null && workoutState.upwardRepetitionsCompleted >= maxReps && !finishSoundPlayed) {
+                                    soundPlayer.playDone()
+                                    finishSoundPlayed = true
+                                } else {
+                                    soundPlayer.playRepRegular()
+                                }
+                            } else if (calibratingIncreased && workoutState.calibratingRepsCompleted > 0) {
                                 soundPlayer.playRepRegular()
                             }
                         }
@@ -573,7 +579,7 @@ class WorkoutViewModel(
                 device = _connectedPeripheral.value ?: return,
                 difficulty = state.value.echoDifficulty,
                 eccentricPercentage = (state.value.eccentricSliderValue / 100.0).toDouble(),
-                maxReps = state.value.repetitionsSliderValue.takeIf { !state.value.useNoRepLimit }
+                maxReps = state.value.repetitionsSliderValue
             )
         } catch (e: Exception) {
             Log.e("WorkoutViewModel", "Error starting workout", e)
@@ -604,7 +610,6 @@ class WorkoutViewModel(
         // Timestamp when pause started (ms since epoch). Null initially and cleared on workout start.
         val pauseStartTimestamp: Long? = null,
         val machineState: VitruvianDeviceManager.MachineState? = null,
-        val useNoRepLimit: Boolean = true,
         val echoDifficulty: VitruvianDeviceManager.EchoDifficulty = VitruvianDeviceManager.EchoDifficulty.WARMUP,
         val eccentricSliderValue: Float = 100.0f,
         val repetitionsSliderValue: Int = 8,

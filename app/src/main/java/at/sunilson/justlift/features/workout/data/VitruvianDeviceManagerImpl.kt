@@ -398,8 +398,9 @@ class VitruvianDeviceManagerImpl(
         // Build Echo control frame using chosen difficulty and tuned parameters.
         val frame = buildEchoControlFrame(
             level = difficulty,
-            // If maxReps is null we use 0xFF which means unlimited (Just Lift)
-            targetReps = maxReps,
+            // We always send null (unlimited) to the device so it doesn't stop resistance
+            // once the rep limit is reached, allowing the user to continue if they want.
+            targetReps = null,
             eccentricPct = eccentricPctInt,
             gain = modeParams.gain,
             cap = modeParams.capKg
@@ -603,20 +604,6 @@ class VitruvianDeviceManagerImpl(
                     )
                     session.state.value = updated
 
-                    val target = session.maxReps
-                    if (target != null) {
-                        if (session.stopAtLastTopRep) {
-                            // Stop on upward completion when upward reps reach target
-                            if (isUpwardCompletion && session.upwardReps >= target) {
-                                stopWorkout(device)
-                            }
-                        } else {
-                            // Default: stop on downward completion when bottom reps reach target + 1 (stop at bottom after last top)
-                            if (!isUpwardCompletion && session.downwardReps >= target + 1) {
-                                stopWorkout(device)
-                            }
-                        }
-                    }
                 }
             } catch (_: Throwable) {
                 // Observation ends

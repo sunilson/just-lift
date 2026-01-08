@@ -85,7 +85,6 @@ fun WorkoutScreen(
     currentUserId: Int = 1,
     pagedHistory: LazyPagingItems<WorkoutHistoryUiModel>? = null,
     onDeviceSelected: (Peripheral) -> Unit = {},
-    onUseNoRepLimitChange: (Boolean) -> Unit = {},
     onEccentricSliderValueChange: (Float) -> Unit = {},
     onRepetitionsSliderValueChange: (Float) -> Unit = {},
     onEchoDifficultyChange: (EchoDifficulty) -> Unit = {},
@@ -206,15 +205,14 @@ fun WorkoutScreen(
                 }
 
                 if (!isWorkoutInProgress && isConnected && !starting) {
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     WorkoutConfigurationWidget(
                         state = state,
-                        onUseNoRepLimitChange = onUseNoRepLimitChange,
                         onEccentricSliderValueChange = onEccentricSliderValueChange,
                         onRepetitionsSliderValueChange = onRepetitionsSliderValueChange,
                         onEchoDifficultyChange = onEchoDifficultyChange
                     )
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         "Lift and hold to start workout",
                         style = MaterialTheme.typography.headlineMedium,

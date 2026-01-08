@@ -26,7 +26,6 @@ private fun `Workout configuration widget`() {
             WorkoutConfigurationWidget(
                 state = WorkoutViewModel.State(
                     eccentricSliderValue = 70f,
-                    useNoRepLimit = false,
                     repetitionsSliderValue = 10,
                     echoDifficulty = EchoDifficulty.HARDER
                 )

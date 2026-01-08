@@ -32,7 +32,7 @@ interface VitruvianDeviceManager {
     /**
      * Starts a just lift workout in echo mode with the given difficulty
      *
-     * @param maxReps Optional maxReps to set for the workout, after which the workout will automatically stop
+     * @param maxReps Optional maxReps to set for the workout. Reaching this limit will trigger a sound in the app but will not stop the workout automatically.
      * @param eccentricPercentage Percentage of the repetition time that should be spent in the eccentric phase (0.0 - 1.3)
      */
     suspend fun startWorkout(

@@ -22,7 +22,7 @@ import java.io.IOException
  * Repository for persisting and restoring workout defaults.
  * Stores:
  * - echo difficulty
- * - useNoRepLimit flag and repetitions value
+ * - repetitions value
  * - eccentric percentage (0f..130f as UI uses percent)
  */
 interface WorkoutSettingsRepository {
@@ -56,13 +56,11 @@ interface WorkoutSettingsRepository {
 
 data class WorkoutSettings(
     val echoDifficulty: VitruvianDeviceManager.EchoDifficulty = VitruvianDeviceManager.EchoDifficulty.WARMUP,
-    val useNoRepLimit: Boolean = true,
     val repetitions: Int = 8,
     val eccentricPercentage: Float = 100f
 )
 
 data class DifficultySettings(
-    val useNoRepLimit: Boolean = true,
     val repetitions: Int = 8,
     val eccentricPercentage: Float = 100f
 )
@@ -99,8 +97,6 @@ class WorkoutSettingsRepositoryImpl(
                     runCatching { VitruvianDeviceManager.EchoDifficulty.valueOf(name) }
                         .getOrDefault(WorkoutSettings().echoDifficulty)
                 } ?: WorkoutSettings().echoDifficulty,
-                useNoRepLimit = prefs[booleanPreferencesKey(userKey(KEY_USE_NO_REP_NAME, userId))]
-                    ?: WorkoutSettings().useNoRepLimit,
                 repetitions = prefs[intPreferencesKey(userKey(KEY_REPS_NAME, userId))]
                     ?: WorkoutSettings().repetitions,
                 eccentricPercentage = prefs[floatPreferencesKey(userKey(KEY_ECCENTRIC_PERCENT_NAME, userId))]
@@ -113,7 +109,6 @@ class WorkoutSettingsRepositoryImpl(
     override suspend fun save(userId: Int, settings: WorkoutSettings) {
         dataStore.edit { prefs ->
             prefs[stringPreferencesKey(userKey(KEY_DIFFICULTY_NAME, userId))] = settings.echoDifficulty.name
-            prefs[booleanPreferencesKey(userKey(KEY_USE_NO_REP_NAME, userId))] = settings.useNoRepLimit
             prefs[intPreferencesKey(userKey(KEY_REPS_NAME, userId))] = settings.repetitions
             prefs[floatPreferencesKey(userKey(KEY_ECCENTRIC_PERCENT_NAME, userId))] = settings.eccentricPercentage
         }
@@ -126,9 +121,6 @@ class WorkoutSettingsRepositoryImpl(
         // Read difficulty-specific values from store; fall back to global defaults if missing
         val prefs = dataStore.data.first()
         return DifficultySettings(
-            useNoRepLimit = prefs[boolKey(diffKey(KEY_USE_NO_REP_NAME, difficulty, userId))]
-                ?: (prefs[booleanPreferencesKey(userKey(KEY_USE_NO_REP_NAME, userId))]
-                    ?: DifficultySettings().useNoRepLimit),
             repetitions = prefs[intKey(diffKey(KEY_REPS_NAME, difficulty, userId))]
                 ?: (prefs[intPreferencesKey(userKey(KEY_REPS_NAME, userId))]
                     ?: DifficultySettings().repetitions),
@@ -144,7 +136,6 @@ class WorkoutSettingsRepositoryImpl(
         settings: DifficultySettings
     ) {
         dataStore.edit { prefs ->
-            prefs[boolKey(diffKey(KEY_USE_NO_REP_NAME, difficulty, userId))] = settings.useNoRepLimit
             prefs[intKey(diffKey(KEY_REPS_NAME, difficulty, userId))] = settings.repetitions
             prefs[floatKey(diffKey(KEY_ECCENTRIC_PERCENT_NAME, difficulty, userId))] = settings.eccentricPercentage
         }
@@ -155,7 +146,6 @@ class WorkoutSettingsRepositoryImpl(
         difficulty: VitruvianDeviceManager.EchoDifficulty
     ) {
         dataStore.edit { prefs ->
-            prefs.remove(boolKey(diffKey(KEY_USE_NO_REP_NAME, difficulty, userId)))
             prefs.remove(intKey(diffKey(KEY_REPS_NAME, difficulty, userId)))
             prefs.remove(floatKey(diffKey(KEY_ECCENTRIC_PERCENT_NAME, difficulty, userId)))
         }
@@ -225,7 +215,6 @@ class WorkoutSettingsRepositoryImpl(
         private const val DATASTORE_FILE = "workout_settings.preferences_pb"
 
         private const val KEY_DIFFICULTY_NAME = "difficulty"
-        private const val KEY_USE_NO_REP_NAME = "use_no_rep_limit"
         private const val KEY_REPS_NAME = "reps"
         private const val KEY_ECCENTRIC_PERCENT_NAME = "eccentric_percent"
 

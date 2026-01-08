@@ -28,7 +28,6 @@ import at.sunilson.justlift.shared.presentation.theme.JustLiftTheme
 @Composable
 fun WorkoutConfigurationWidget(
     state: WorkoutViewModel.State,
-    onUseNoRepLimitChange: (Boolean) -> Unit = {},
     onEccentricSliderValueChange: (Float) -> Unit = {},
     onRepetitionsSliderValueChange: (Float) -> Unit = {},
     onEchoDifficultyChange: (EchoDifficulty) -> Unit = {},
@@ -42,7 +41,9 @@ fun WorkoutConfigurationWidget(
             steps = 12,
             enabled = state.workoutState == null
         )
-        Spacer(modifier = Modifier.height(16.dp))
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         SingleChoiceSegmentedButtonRow {
             EchoDifficulty.entries.forEachIndexed { index, difficulty ->
                 SegmentedButton(
@@ -59,25 +60,17 @@ fun WorkoutConfigurationWidget(
                 )
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("No rep limit")
-            Checkbox(checked = state.useNoRepLimit, onCheckedChange = { onUseNoRepLimitChange(it) }, enabled = state.workoutState == null)
-        }
 
-        AnimatedVisibility(!state.useNoRepLimit) {
-            Column {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Repetitions: ${state.repetitionsSliderValue}")
-                Slider(
-                    value = state.repetitionsSliderValue.toFloat(),
-                    onValueChange = onRepetitionsSliderValueChange,
-                    valueRange = 1f..20f,
-                    steps = 19,
-                    enabled = state.workoutState == null
-                )
-            }
-        }
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text("Repetitions: ${state.repetitionsSliderValue}")
+        Slider(
+            value = state.repetitionsSliderValue.toFloat(),
+            onValueChange = onRepetitionsSliderValueChange,
+            valueRange = 1f..20f,
+            steps = 19,
+            enabled = state.workoutState == null
+        )
     }
 }
 
@@ -92,7 +85,6 @@ private fun WorkoutConfigurationWidgetPreview() {
             WorkoutConfigurationWidget(
                 state = WorkoutViewModel.State(
                     eccentricSliderValue = 70f,
-                    useNoRepLimit = false,
                     repetitionsSliderValue = 10,
                     echoDifficulty = EchoDifficulty.HARDER
                 )
