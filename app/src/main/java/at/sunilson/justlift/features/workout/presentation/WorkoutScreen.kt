@@ -106,6 +106,7 @@ fun WorkoutScreen(
     onShowTendenciesInfoClicked: () -> Unit = {},
     onDismissTendenciesInfoClicked: () -> Unit = {},
     onEditExerciseName: (WorkoutHistoryEntry) -> Unit = {},
+    onConfirmRecognition: (WorkoutHistoryEntry) -> Unit = {},
     onExerciseSelected: (String) -> Unit = {},
     onDismissExerciseSelection: () -> Unit = {},
     onUserSwitchClicked: () -> Unit = {}
@@ -288,6 +289,7 @@ fun WorkoutScreen(
                 history = pagedHistory,
                 onDismiss = onDismissHistoryClicked,
                 onEditExerciseName = onEditExerciseName,
+                onConfirmRecognition = onConfirmRecognition,
                 onShowTendencies = onShowTendenciesClicked
             )
         }

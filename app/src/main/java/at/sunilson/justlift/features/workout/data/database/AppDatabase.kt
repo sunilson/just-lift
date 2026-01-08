@@ -5,11 +5,18 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [WorkoutHistoryEntity::class, ExerciseEntity::class], version = 9, exportSchema = false)
+@Database(entities = [WorkoutHistoryEntity::class, ExerciseEntity::class], version = 10, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun workoutHistoryDao(): WorkoutHistoryDao
 
     companion object {
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE workout_history ADD COLUMN wasAutomaticallyRecognized INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE workout_history ADD COLUMN isConfirmed INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // Add columns to workout_history

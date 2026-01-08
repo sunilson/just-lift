@@ -17,8 +17,11 @@ interface WorkoutHistoryDao {
     @Insert
     suspend fun insert(workout: WorkoutHistoryEntity)
 
-    @Query("UPDATE workout_history SET exerciseName = :exerciseName WHERE id = :id")
+    @Query("UPDATE workout_history SET exerciseName = :exerciseName, wasAutomaticallyRecognized = 0 WHERE id = :id")
     suspend fun updateExerciseName(id: Long, exerciseName: String?)
+
+    @Query("UPDATE workout_history SET isConfirmed = 1 WHERE id = :id")
+    suspend fun setConfirmed(id: Long)
 
     @Query("""
         SELECT *, 

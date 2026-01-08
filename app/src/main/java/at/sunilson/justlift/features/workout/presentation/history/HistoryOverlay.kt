@@ -21,6 +21,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.paging.compose.LazyPagingItems
@@ -32,6 +33,7 @@ fun HistoryOverlay(
     history: LazyPagingItems<WorkoutHistoryUiModel>?,
     onDismiss: () -> Unit,
     onEditExerciseName: (WorkoutHistoryEntry) -> Unit,
+    onConfirmRecognition: (WorkoutHistoryEntry) -> Unit,
     onShowTendencies: () -> Unit
 ) {
     // Content - consume taps so they don't pass to scrim or underlying UI
@@ -120,6 +122,16 @@ fun HistoryOverlay(
                                         contentDescription = "Edit exercise name",
                                         tint = MaterialTheme.colorScheme.primary
                                     )
+                                }
+
+                                if (entry.wasAutomaticallyRecognized && !entry.isConfirmed) {
+                                    IconButton(onClick = { onConfirmRecognition(entry) }) {
+                                        Icon(
+                                            Icons.Default.Check,
+                                            contentDescription = "Confirm recognition",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 }
                             }
                             Spacer(modifier = Modifier.height(8.dp))

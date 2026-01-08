@@ -12,7 +12,9 @@ data class WorkoutHistoryEntry(
     val workoutState: VitruvianDeviceManager.WorkoutState,
     val timestampMillis: Long,
     val exerciseName: String? = null,
-    val score: Double? = null
+    val score: Double? = null,
+    val wasAutomaticallyRecognized: Boolean = false,
+    val isConfirmed: Boolean = false
 )
 
 data class ExerciseTrend(
@@ -72,7 +74,9 @@ fun WorkoutHistoryEntity.toDomain() = WorkoutHistoryEntry(
         avgDownwardMaxVelocity = avgDownwardMaxVelocity,
         avgRestDurationMillis = avgRestDurationMillis,
         difficulty = VitruvianDeviceManager.EchoDifficulty.valueOf(difficulty)
-    )
+    ),
+    wasAutomaticallyRecognized = wasAutomaticallyRecognized,
+    isConfirmed = isConfirmed
 )
 
 fun WorkoutHistoryEntry.toEntity(userId: Int) = WorkoutHistoryEntity(
@@ -108,7 +112,9 @@ fun WorkoutHistoryEntry.toEntity(userId: Int) = WorkoutHistoryEntity(
     avgDownwardMaxVelocity = workoutState.avgDownwardMaxVelocity,
     avgRestDurationMillis = workoutState.avgRestDurationMillis,
     exerciseName = exerciseName,
-    difficulty = workoutState.difficulty.name
+    difficulty = workoutState.difficulty.name,
+    wasAutomaticallyRecognized = wasAutomaticallyRecognized,
+    isConfirmed = isConfirmed
 )
 
 fun VitruvianDeviceManager.WorkoutState.toExerciseEntity(userId: Int, name: String) = ExerciseEntity(

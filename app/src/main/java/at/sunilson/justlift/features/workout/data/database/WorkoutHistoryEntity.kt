@@ -38,7 +38,9 @@ data class WorkoutHistoryEntity(
     val avgDownwardMaxVelocity: Double = 0.0,
     val avgRestDurationMillis: Double = 0.0,
     val exerciseName: String? = null,
-    val difficulty: String = "WARMUP"
+    val difficulty: String = "WARMUP",
+    val wasAutomaticallyRecognized: Boolean = false,
+    val isConfirmed: Boolean = false
 )
 
 @Entity(

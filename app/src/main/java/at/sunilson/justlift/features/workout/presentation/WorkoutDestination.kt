@@ -47,6 +47,7 @@ fun WorkoutDestination(
         onShowTendenciesInfoClicked = viewModel::onShowTendenciesInfoClicked,
         onDismissTendenciesInfoClicked = viewModel::onDismissTendenciesInfoClicked,
         onEditExerciseName = viewModel::onEditExerciseName,
+        onConfirmRecognition = viewModel::onConfirmRecognition,
         onExerciseSelected = viewModel::onExerciseSelected,
         onDismissExerciseSelection = viewModel::onDismissExerciseSelection,
         onUserSwitchClicked = viewModel::onUserSwitchClicked

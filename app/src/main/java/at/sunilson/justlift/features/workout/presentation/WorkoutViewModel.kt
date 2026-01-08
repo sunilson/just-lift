@@ -385,7 +385,8 @@ class WorkoutViewModel(
                                 val entry = WorkoutHistoryEntry(
                                     workoutState = prev,
                                     timestampMillis = System.currentTimeMillis(),
-                                    exerciseName = guessedName
+                                    exerciseName = guessedName,
+                                    wasAutomaticallyRecognized = guessedName != null
                                 )
                                 workoutHistoryDao.insert(entry.toEntity(userId))
                                 Log.d("ExerciseRecognition", "Workout entry saved to history")
@@ -804,19 +805,35 @@ class WorkoutViewModel(
             if (name != entry.exerciseName) {
                 // Update history entry
                 workoutHistoryDao.updateExerciseName(entry.id, name)
-                
-                // Save as exercise fingerprint (average with existing if present)
-                val existing = workoutHistoryDao.getExercise(userId, name, entry.workoutState.difficulty.name)
-                val exerciseEntity = if (existing != null) {
-                    existing.averageWith(entry.workoutState)
-                } else {
-                    entry.workoutState.toExerciseEntity(userId, name)
-                }
-                workoutHistoryDao.insertExercise(exerciseEntity)
+                updateExerciseFingerprint(userId, name, entry.workoutState)
             }
             
             _state.update { it.copy(showExerciseSelection = null) }
         }
+    }
+
+    fun onConfirmRecognition(entry: WorkoutHistoryEntry) {
+        val name = entry.exerciseName ?: return
+        viewModelScope.launch {
+            val userId = currentUserId.value
+            workoutHistoryDao.setConfirmed(entry.id)
+            updateExerciseFingerprint(userId, name, entry.workoutState)
+        }
+    }
+
+    private suspend fun updateExerciseFingerprint(
+        userId: Int,
+        name: String,
+        workoutState: VitruvianDeviceManager.WorkoutState
+    ) {
+        // Save as exercise fingerprint (average with existing if present)
+        val existing = workoutHistoryDao.getExercise(userId, name, workoutState.difficulty.name)
+        val exerciseEntity = if (existing != null) {
+            existing.averageWith(workoutState)
+        } else {
+            workoutState.toExerciseEntity(userId, name)
+        }
+        workoutHistoryDao.insertExercise(exerciseEntity)
     }
 
     fun onDismissExerciseSelection() {
