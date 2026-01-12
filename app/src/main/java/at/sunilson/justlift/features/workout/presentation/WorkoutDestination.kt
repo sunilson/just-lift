@@ -29,6 +29,7 @@ fun WorkoutDestination(
         onEccentricSliderValueChange = viewModel::onEccentricSliderValueChange,
         onRepetitionsSliderValueChange = viewModel::onRepetitionsSliderValueChange,
         onEchoDifficultyChange = viewModel::onEchoDifficultyChange,
+        onUseTtsChange = viewModel::onUseTtsChange,
         onOpenDifficultySettings = viewModel::onOpenDifficultySettings,
         onDismissDifficultySettings = viewModel::onDismissDifficultySettings,
         onDifficultySheetSelectDifficulty = viewModel::onDifficultySheetSelectDifficulty,

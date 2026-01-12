@@ -89,6 +89,7 @@ fun WorkoutScreen(
     onEccentricSliderValueChange: (Float) -> Unit = {},
     onRepetitionsSliderValueChange: (Float) -> Unit = {},
     onEchoDifficultyChange: (EchoDifficulty) -> Unit = {},
+    onUseTtsChange: (Boolean) -> Unit = {},
     onOpenDifficultySettings: () -> Unit = {},
     onDismissDifficultySettings: () -> Unit = {},
     onDifficultySheetSelectDifficulty: (EchoDifficulty) -> Unit = {},
@@ -280,6 +281,8 @@ fun WorkoutScreen(
                 onGainChange = onDifficultySheetUpdateGain,
                 capKg = state.difficultySheetCap,
                 onCapChange = onDifficultySheetUpdateCap,
+                useTts = state.useTts,
+                onUseTtsChange = onUseTtsChange,
                 onResetSelected = onDifficultySheetResetSelected,
                 onEditExerciseNames = onOpenExerciseNameEditor
             )

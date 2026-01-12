@@ -4,16 +4,18 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.SoundPool
+import android.speech.tts.TextToSpeech
 import android.util.Log
 import at.sunilson.justlift.R
 import org.koin.core.annotation.Single
+import java.util.Locale
 
 /**
  * Simple app-wide sound player for short UI sound effects.
- * Uses SoundPool for very short, frequent sounds.
+ * Uses SoundPool for very short, frequent sounds and TextToSpeech for verbal feedback.
  */
 @Single
-class AppSoundPlayer(private val context: Context) {
+class AppSoundPlayer(private val context: Context) : TextToSpeech.OnInitListener {
 
     private val soundPool: SoundPool
     private val soundIdByKey: Map<String, Int>
@@ -21,7 +23,12 @@ class AppSoundPlayer(private val context: Context) {
     private val loadedIds = mutableSetOf<Int>()
     private val playingIds = mutableMapOf<String, Int>()
 
+    private var tts: TextToSpeech? = null
+    private var ttsInitialized = false
+
     init {
+        tts = TextToSpeech(context, this)
+
         val attrs = AudioAttributes.Builder()
             // Use media usage so playback follows media volume rather than ringer/notification
             .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -47,11 +54,39 @@ class AppSoundPlayer(private val context: Context) {
         }
     }
 
-    fun playStart() = play(KEY_START)
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            tts?.language = Locale.US
+            ttsInitialized = true
+        }
+    }
+
+    fun speak(text: String) {
+        if (ttsInitialized) {
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+        }
+    }
+
+    fun playStart(useTts: Boolean = false) {
+        if (useTts) speak("Start") else play(KEY_START)
+    }
+
     fun playAutoStartCountDown() = play(KEY_START_COUNTDOWN)
+
     fun stopAutoStartCountDown() = stop(KEY_START_COUNTDOWN)
-    fun playDone() = play(KEY_DONE)
-    fun playRepRegular() = play(KEY_REP_REGULAR, volume = 0.9f)
+
+    fun playDone(useTts: Boolean = false) {
+        if (useTts) speak("Finish") else play(KEY_DONE)
+    }
+
+    fun playRep(repNumber: Int, isWarmup: Boolean, useTts: Boolean = false) {
+        if (useTts) {
+            val text = if (isWarmup) "Warmup" else repNumber.toString()
+            speak(text)
+        } else {
+            play(KEY_REP_REGULAR, volume = 0.9f)
+        }
+    }
 
     fun maximizeVolume() {
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager

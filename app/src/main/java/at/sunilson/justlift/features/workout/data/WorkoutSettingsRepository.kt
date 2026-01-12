@@ -57,7 +57,8 @@ interface WorkoutSettingsRepository {
 data class WorkoutSettings(
     val echoDifficulty: VitruvianDeviceManager.EchoDifficulty = VitruvianDeviceManager.EchoDifficulty.WARMUP,
     val repetitions: Int = 8,
-    val eccentricPercentage: Float = 100f
+    val eccentricPercentage: Float = 100f,
+    val useTts: Boolean = false
 )
 
 data class DifficultySettings(
@@ -100,7 +101,9 @@ class WorkoutSettingsRepositoryImpl(
                 repetitions = prefs[intPreferencesKey(userKey(KEY_REPS_NAME, userId))]
                     ?: WorkoutSettings().repetitions,
                 eccentricPercentage = prefs[floatPreferencesKey(userKey(KEY_ECCENTRIC_PERCENT_NAME, userId))]
-                    ?: WorkoutSettings().eccentricPercentage
+                    ?: WorkoutSettings().eccentricPercentage,
+                useTts = prefs[booleanPreferencesKey(userKey(KEY_USE_TTS, userId))]
+                    ?: WorkoutSettings().useTts
             )
         }
 
@@ -111,6 +114,7 @@ class WorkoutSettingsRepositoryImpl(
             prefs[stringPreferencesKey(userKey(KEY_DIFFICULTY_NAME, userId))] = settings.echoDifficulty.name
             prefs[intPreferencesKey(userKey(KEY_REPS_NAME, userId))] = settings.repetitions
             prefs[floatPreferencesKey(userKey(KEY_ECCENTRIC_PERCENT_NAME, userId))] = settings.eccentricPercentage
+            prefs[booleanPreferencesKey(userKey(KEY_USE_TTS, userId))] = settings.useTts
         }
     }
 
@@ -217,6 +221,7 @@ class WorkoutSettingsRepositoryImpl(
         private const val KEY_DIFFICULTY_NAME = "difficulty"
         private const val KEY_REPS_NAME = "reps"
         private const val KEY_ECCENTRIC_PERCENT_NAME = "eccentric_percent"
+        private const val KEY_USE_TTS = "use_tts"
 
         private val KEY_LAST_DEVICE_ID = stringPreferencesKey("last_device_id")
         private val KEY_LAST_DEVICE_NAME = stringPreferencesKey("last_device_name")

@@ -1,12 +1,14 @@
 package at.sunilson.justlift.features.workout.presentation.widgets
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
@@ -29,16 +31,19 @@ fun DifficultySettingsSheet(
     onGainChange: (Float) -> Unit,
     capKg: Float,
     onCapChange: (Float) -> Unit,
+    useTts: Boolean,
+    onUseTtsChange: (Boolean) -> Unit,
     onResetSelected: () -> Unit,
     onEditExerciseNames: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Difficulty presets", style = MaterialTheme.typography.headlineSmall)
+        Text("Difficulty presets", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(12.dp))
 
         SingleChoiceSegmentedButtonRow {
@@ -58,12 +63,17 @@ fun DifficultySettingsSheet(
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(24.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(24.dp))
+
+        Text("Machine parameters", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(12.dp))
 
         // Gain slider (0.5 .. 3.333) — quantize to 0.01 steps
         val gainMin = 0.5f
         val gainMax = 3.333f
-        Text("Gain: ${((gain * 100f).toInt() / 100f)}")
+        Text("Gain: ${((gain * 100f).toInt() / 100f)}", style = MaterialTheme.typography.bodyMedium)
         Slider(
             value = gain.coerceIn(gainMin, gainMax),
             onValueChange = { raw ->
@@ -75,12 +85,12 @@ fun DifficultySettingsSheet(
             valueRange = gainMin..gainMax
         )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(8.dp))
 
         // Cap slider (15 .. 50 kg) — integer steps
         val capMin = 15f
         val capMax = 50f
-        Text("Cap: ${capKg.toInt()} kg")
+        Text("Cap: ${capKg.toInt()} kg", style = MaterialTheme.typography.bodyMedium)
         Slider(
             value = capKg.coerceIn(capMin, capMax),
             onValueChange = { raw ->
@@ -93,14 +103,42 @@ fun DifficultySettingsSheet(
             steps = (capMax - capMin).toInt() - 1
         )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(24.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(24.dp))
+
+        Text("Exercise settings", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(12.dp))
+
         Button(onClick = onResetSelected) {
             Text("Reset selected difficulty")
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(8.dp))
         TextButton(onClick = onEditExerciseNames) {
             Text("Edit exercise names")
         }
+
+        Spacer(Modifier.height(24.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(24.dp))
+
+        Text("Rep announcement", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(12.dp))
+        SingleChoiceSegmentedButtonRow {
+             SegmentedButton(
+                selected = !useTts,
+                onClick = { onUseTtsChange(false) },
+                shape = SegmentedButtonDefaults.itemShape(0, 2),
+                label = { Text("Beeps") }
+            )
+            SegmentedButton(
+                selected = useTts,
+                onClick = { onUseTtsChange(true) },
+                shape = SegmentedButtonDefaults.itemShape(1, 2),
+                label = { Text("TTS") }
+            )
+        }
+        Spacer(Modifier.height(16.dp))
     }
 }

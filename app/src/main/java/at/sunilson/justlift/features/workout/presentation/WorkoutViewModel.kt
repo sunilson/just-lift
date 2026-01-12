@@ -148,6 +148,7 @@ class WorkoutViewModel(
                                 echoDifficulty = settings.echoDifficulty,
                                 repetitionsSliderValue = settings.repetitions,
                                 eccentricSliderValue = settings.eccentricPercentage,
+                                useTts = settings.useTts,
                                 difficultySheetSelection = settings.echoDifficulty
                             )
                         }
@@ -231,6 +232,11 @@ class WorkoutViewModel(
         persistCurrentSettings()
     }
 
+    fun onUseTtsChange(useTts: Boolean) {
+        _state.update { it.copy(useTts = useTts) }
+        persistCurrentSettings()
+    }
+
 
     fun onEchoDifficultyChange(difficulty: VitruvianDeviceManager.EchoDifficulty) {
         _state.update { it.copy(echoDifficulty = difficulty, difficultySheetSelection = difficulty) }
@@ -247,7 +253,8 @@ class WorkoutViewModel(
                 WorkoutSettings(
                     echoDifficulty = s.echoDifficulty,
                     repetitions = s.repetitionsSliderValue,
-                    eccentricPercentage = s.eccentricSliderValue
+                    eccentricPercentage = s.eccentricSliderValue,
+                    useTts = s.useTts
                 )
             )
         }
@@ -340,25 +347,28 @@ class WorkoutViewModel(
                 .flatMapLatest { if (it != null) vitruvianDeviceManager.getWorkoutStateFlow(it) else flowOf(null) }
                 .collect { workoutState ->
                     val prev = lastWorkoutState
+                    val useTts = state.value.useTts
                     when {
                         prev == null && workoutState != null -> {
-                            soundPlayer.playStart()
+                            soundPlayer.playStart(useTts)
                             finishSoundPlayed = false
                         }
-                        prev != null && workoutState == null -> soundPlayer.playDone()
+                        prev != null && workoutState == null -> {
+                            if (!finishSoundPlayed) soundPlayer.playDone(useTts)
+                        }
                         prev != null && workoutState != null -> {
                             val repsIncreased = workoutState.upwardRepetitionsCompleted > prev.upwardRepetitionsCompleted
                             val calibratingIncreased = workoutState.calibratingRepsCompleted > prev.calibratingRepsCompleted
                             if (repsIncreased) {
                                 val maxReps = workoutState.maxReps
                                 if (maxReps != null && workoutState.upwardRepetitionsCompleted >= maxReps && !finishSoundPlayed) {
-                                    soundPlayer.playDone()
+                                    soundPlayer.playDone(useTts)
                                     finishSoundPlayed = true
                                 } else {
-                                    soundPlayer.playRepRegular()
+                                    soundPlayer.playRep(workoutState.upwardRepetitionsCompleted, false, useTts)
                                 }
                             } else if (calibratingIncreased && workoutState.calibratingRepsCompleted > 0) {
-                                soundPlayer.playRepRegular()
+                                soundPlayer.playRep(workoutState.calibratingRepsCompleted, true, useTts)
                             }
                         }
                     }
@@ -613,6 +623,7 @@ class WorkoutViewModel(
         val echoDifficulty: VitruvianDeviceManager.EchoDifficulty = VitruvianDeviceManager.EchoDifficulty.WARMUP,
         val eccentricSliderValue: Float = 100.0f,
         val repetitionsSliderValue: Int = 8,
+        val useTts: Boolean = false,
         val autoStartInSeconds: Int? = null,
         val savedDevice: SavedDevice? = null,
         val isAutoConnecting: Boolean = false,
