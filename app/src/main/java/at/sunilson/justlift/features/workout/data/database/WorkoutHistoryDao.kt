@@ -53,6 +53,12 @@ interface WorkoutHistoryDao {
     @Query("SELECT * FROM exercises WHERE userId = :userId AND name = :name AND difficulty = :difficulty LIMIT 1")
     suspend fun getExercise(userId: Int, name: String, difficulty: String): ExerciseEntity?
 
+    @Query("UPDATE exercises SET name = :newName WHERE name = :oldName")
+    suspend fun renameExercise(oldName: String, newName: String)
+
+    @Query("UPDATE workout_history SET exerciseName = :newName WHERE exerciseName = :oldName")
+    suspend fun renameExerciseInHistory(oldName: String, newName: String)
+
     @Query("DELETE FROM workout_history")
     suspend fun deleteAll()
 }

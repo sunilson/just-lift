@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -29,6 +30,7 @@ fun DifficultySettingsSheet(
     capKg: Float,
     onCapChange: (Float) -> Unit,
     onResetSelected: () -> Unit,
+    onEditExerciseNames: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -94,6 +96,11 @@ fun DifficultySettingsSheet(
         Spacer(Modifier.height(16.dp))
         Button(onClick = onResetSelected) {
             Text("Reset selected difficulty")
+        }
+
+        Spacer(Modifier.height(16.dp))
+        TextButton(onClick = onEditExerciseNames) {
+            Text("Edit exercise names")
         }
     }
 }

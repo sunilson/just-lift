@@ -76,6 +76,7 @@ import at.sunilson.justlift.features.workout.presentation.history.TendenciesShee
 import androidx.compose.ui.zIndex
 import at.sunilson.justlift.features.workout.presentation.widgets.ExerciseSelectionSheet
 import at.sunilson.justlift.features.workout.presentation.widgets.DifficultySettingsSheet
+import at.sunilson.justlift.features.workout.presentation.widgets.ExerciseNameEditorSheet
 import androidx.paging.compose.LazyPagingItems
 
 @OptIn(ExperimentalApi::class, ExperimentalMaterial3Api::class)
@@ -108,7 +109,10 @@ fun WorkoutScreen(
     onConfirmRecognition: (WorkoutHistoryEntry) -> Unit = {},
     onExerciseSelected: (String) -> Unit = {},
     onDismissExerciseSelection: () -> Unit = {},
-    onUserSwitchClicked: () -> Unit = {}
+    onUserSwitchClicked: () -> Unit = {},
+    onOpenExerciseNameEditor: () -> Unit = {},
+    onDismissExerciseNameEditor: () -> Unit = {},
+    onRenameExercise: (String, String) -> Unit = { _, _ -> }
 ) {
     val scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState = rememberStandardBottomSheetState(skipHiddenState = false))
     val isWorkoutInProgress = state.workoutState != null && state.machineState != null
@@ -276,7 +280,17 @@ fun WorkoutScreen(
                 onGainChange = onDifficultySheetUpdateGain,
                 capKg = state.difficultySheetCap,
                 onCapChange = onDifficultySheetUpdateCap,
-                onResetSelected = onDifficultySheetResetSelected
+                onResetSelected = onDifficultySheetResetSelected,
+                onEditExerciseNames = onOpenExerciseNameEditor
+            )
+        }
+    }
+
+    if (state.showExerciseNameEditor) {
+        ModalBottomSheet(onDismissRequest = onDismissExerciseNameEditor) {
+            ExerciseNameEditorSheet(
+                exerciseNames = state.allExerciseNames,
+                onRenameExercise = onRenameExercise
             )
         }
     }

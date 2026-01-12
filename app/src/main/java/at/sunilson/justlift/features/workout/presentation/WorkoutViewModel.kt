@@ -627,7 +627,9 @@ class WorkoutViewModel(
         val exerciseNameSuggestions: List<String> = emptyList(),
         val showTendencies: Boolean = false,
         val showTendenciesInfo: Boolean = false,
-        val tendencies: List<ExerciseTrend> = emptyList()
+        val tendencies: List<ExerciseTrend> = emptyList(),
+        val showExerciseNameEditor: Boolean = false,
+        val allExerciseNames: List<String> = emptyList()
     )
 
     fun onHistoryClicked() {
@@ -843,6 +845,32 @@ class WorkoutViewModel(
 
     fun onDismissExerciseSelection() {
         _state.update { it.copy(showExerciseSelection = null) }
+    }
+
+    fun onOpenExerciseNameEditor() {
+        viewModelScope.launch {
+            val names = workoutHistoryDao.getAllExerciseNames()
+            _state.update { it.copy(showExerciseNameEditor = true, allExerciseNames = names) }
+        }
+    }
+
+    fun onDismissExerciseNameEditor() {
+        _state.update { it.copy(showExerciseNameEditor = false) }
+    }
+
+    fun onRenameExercise(oldName: String, newName: String) {
+        viewModelScope.launch {
+            workoutHistoryDao.renameExercise(oldName, newName)
+            workoutHistoryDao.renameExerciseInHistory(oldName, newName)
+            // Refresh names
+            val names = workoutHistoryDao.getAllExerciseNames()
+            _state.update {
+                it.copy(
+                    allExerciseNames = names,
+                    previousWorkoutExerciseName = if (it.previousWorkoutExerciseName == oldName) newName else it.previousWorkoutExerciseName
+                )
+            }
+        }
     }
 
     companion object {

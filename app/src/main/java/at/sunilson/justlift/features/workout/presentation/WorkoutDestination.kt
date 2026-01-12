@@ -49,6 +49,9 @@ fun WorkoutDestination(
         onConfirmRecognition = viewModel::onConfirmRecognition,
         onExerciseSelected = viewModel::onExerciseSelected,
         onDismissExerciseSelection = viewModel::onDismissExerciseSelection,
-        onUserSwitchClicked = viewModel::onUserSwitchClicked
+        onUserSwitchClicked = viewModel::onUserSwitchClicked,
+        onOpenExerciseNameEditor = viewModel::onOpenExerciseNameEditor,
+        onDismissExerciseNameEditor = viewModel::onDismissExerciseNameEditor,
+        onRenameExercise = viewModel::onRenameExercise
     )
 }
