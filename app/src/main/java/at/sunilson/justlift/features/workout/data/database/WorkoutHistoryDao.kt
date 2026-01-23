@@ -15,7 +15,7 @@ data class WorkoutHistoryWithStats(
 @Dao
 interface WorkoutHistoryDao {
     @Insert
-    suspend fun insert(workout: WorkoutHistoryEntity)
+    suspend fun insert(workout: WorkoutHistoryEntity): Long
 
     @Query("UPDATE workout_history SET exerciseName = :exerciseName, wasAutomaticallyRecognized = 0 WHERE id = :id")
     suspend fun updateExerciseName(id: Long, exerciseName: String?)
@@ -38,6 +38,9 @@ interface WorkoutHistoryDao {
     """)
     fun getAllPaged(userId: Int): PagingSource<Int, WorkoutHistoryWithStats>
 
+    @Query("SELECT * FROM workout_history WHERE userId = :userId ORDER BY timestampMillis DESC LIMIT 1")
+    suspend fun getLatest(userId: Int): WorkoutHistoryEntity?
+
     @Query("SELECT * FROM workout_history WHERE userId = :userId ORDER BY timestampMillis ASC")
     suspend fun getAllHistory(userId: Int): List<WorkoutHistoryEntity>
 
@@ -56,8 +59,11 @@ interface WorkoutHistoryDao {
     @Query("UPDATE exercises SET name = :newName WHERE name = :oldName")
     suspend fun renameExercise(oldName: String, newName: String)
 
+    @Query("DELETE FROM exercises WHERE name = :name")
+    suspend fun deleteExercise(name: String)
+
     @Query("UPDATE workout_history SET exerciseName = :newName WHERE exerciseName = :oldName")
-    suspend fun renameExerciseInHistory(oldName: String, newName: String)
+    suspend fun renameExerciseInHistory(oldName: String, newName: String?)
 
     @Query("DELETE FROM workout_history")
     suspend fun deleteAll()

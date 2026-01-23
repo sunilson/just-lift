@@ -11,6 +11,9 @@ import androidx.compose.ui.unit.dp
 import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager.EchoDifficulty
 import at.sunilson.justlift.features.workout.presentation.WorkoutViewModel
 import at.sunilson.justlift.features.workout.presentation.widgets.WorkoutConfigurationWidget
+import at.sunilson.justlift.features.workout.presentation.history.TendenciesSheet
+import at.sunilson.justlift.features.workout.presentation.history.ExerciseTrend
+import at.sunilson.justlift.features.workout.presentation.history.TrendTimeframe
 import at.sunilson.justlift.shared.presentation.theme.JustLiftTheme
 import com.android.tools.screenshot.PreviewTest
 
@@ -29,6 +32,28 @@ private fun `Workout configuration widget`() {
                     repetitionsSliderValue = 10,
                     echoDifficulty = EchoDifficulty.HARDER
                 )
+            )
+        }
+    }
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+private fun `Tendencies sheet`() {
+    JustLiftTheme {
+        Box(modifier = Modifier
+            .background(MaterialTheme.colorScheme.background)
+            .padding(16.dp)
+        ) {
+            TendenciesSheet(
+                tendencies = listOf(
+                    ExerciseTrend("Bicep Curl (HARD)", 2.5, 1.2, 45.0, 42.0),
+                    ExerciseTrend("Squat (NORMAL)", -1.5, -0.8, 80.0, 75.0)
+                ),
+                selectedTimeframe = TrendTimeframe.ONE_WEEK,
+                onTimeframeSelected = {},
+                onInfoClick = {}
             )
         }
     }

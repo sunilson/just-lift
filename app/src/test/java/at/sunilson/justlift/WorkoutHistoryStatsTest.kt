@@ -3,6 +3,8 @@ package at.sunilson.justlift
 import at.sunilson.justlift.features.workout.data.database.WorkoutHistoryEntity
 import at.sunilson.justlift.features.workout.data.database.WorkoutHistoryWithStats
 import at.sunilson.justlift.features.workout.presentation.history.toDomain
+import at.sunilson.justlift.features.workout.presentation.history.estimatedUpwardOneRepMax
+import at.sunilson.justlift.features.workout.presentation.history.estimatedDownwardOneRepMax
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -69,5 +71,28 @@ class WorkoutHistoryStatsTest {
         
         val domain = stats.toDomain()
         assertNull(domain.score)
+    }
+
+    @Test
+    fun `test estimated 1RM calculation`() {
+        val entity = WorkoutHistoryEntity(
+            upwardRepetitionsCompleted = 10,
+            averageUpwardForce = 50.0,
+            downwardRepetitionsCompleted = 20,
+            averageDownwardForce = 40.0,
+            timestampMillis = 1000L,
+            difficulty = "NORMAL",
+            calibratingRepsCompleted = 0,
+            maxReps = null,
+            timeElapsedMillis = 0,
+            maxUpwardForce = 50.0,
+            maxDownwardForce = 40.0
+        )
+
+        // Upward: 50 * (1 + 10/30) = 50 * 1.3333 = 66.666
+        assertEquals(66.666, entity.estimatedUpwardOneRepMax(), 0.01)
+
+        // Downward: 40 * (1 + 20/30) = 40 * 1.6666 = 66.666
+        assertEquals(66.666, entity.estimatedDownwardOneRepMax(), 0.01)
     }
 }

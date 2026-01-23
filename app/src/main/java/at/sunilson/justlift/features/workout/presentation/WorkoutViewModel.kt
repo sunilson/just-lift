@@ -17,11 +17,14 @@ import at.sunilson.justlift.features.workout.data.database.WorkoutHistoryDao
 import at.sunilson.justlift.features.user.data.UserRepository
 import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryEntry
 import at.sunilson.justlift.features.workout.presentation.history.ExerciseTrend
+import at.sunilson.justlift.features.workout.presentation.history.TrendTimeframe
 import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryUiModel
 import at.sunilson.justlift.features.workout.presentation.history.toDomain
 import at.sunilson.justlift.features.workout.presentation.history.toEntity
 import at.sunilson.justlift.features.workout.presentation.history.toExerciseEntity
 import at.sunilson.justlift.features.workout.presentation.history.averageWith
+import at.sunilson.justlift.features.workout.presentation.history.estimatedUpwardOneRepMax
+import at.sunilson.justlift.features.workout.presentation.history.estimatedDownwardOneRepMax
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.cachedIn
@@ -49,6 +52,8 @@ import kotlinx.coroutines.launch
 import org.koin.android.annotation.KoinViewModel
 import java.util.Date
 import java.text.DateFormat
+import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
 import kotlin.math.abs
 import kotlin.math.ceil
 
@@ -142,7 +147,7 @@ class WorkoutViewModel(
                 userId
             }.collect { userId ->
                 runCatching { workoutSettingsRepository.get(userId) }
-                .onSuccess { settings ->
+                    .onSuccess { settings ->
                         _state.update { s ->
                             s.copy(
                                 echoDifficulty = settings.echoDifficulty,
@@ -153,6 +158,15 @@ class WorkoutViewModel(
                             )
                         }
                     }
+
+                val latest = workoutHistoryDao.getLatest(userId)?.toDomain()
+                _state.update { s ->
+                    s.copy(
+                        previousWorkoutEntry = latest,
+                        previousWorkoutState = latest?.workoutState,
+                        previousWorkoutExerciseName = latest?.exerciseName
+                    )
+                }
             }
         }
     }
@@ -376,36 +390,69 @@ class WorkoutViewModel(
                     _state.update { state ->
                         val updatedPrevious = when {
                             // Transition from active -> paused/stopped: keep the last non-null snapshot
-                            prev != null && workoutState == null -> prev
+                            prev != null && workoutState == null -> {
+                                if (prev.difficulty != VitruvianDeviceManager.EchoDifficulty.WARMUP) {
+                                    prev
+                                } else {
+                                    null
+                                }
+                            }
+
                             else -> state.previousWorkoutState
                         }
 
                         val updatedExerciseName = when {
+                            // Clear exercise name on transition
                             prev != null && workoutState == null -> null
                             else -> state.previousWorkoutExerciseName
                         }
 
+                        val updatedPreviousEntry = when {
+                            // Clear previous entry on transition
+                            prev != null && workoutState == null -> null
+                            else -> state.previousWorkoutEntry
+                        }
+
                         // Save to database when a workout just finished
                         if (prev != null && workoutState == null) {
-                            viewModelScope.launch {
-                                val userId = currentUserId.value
-                                Log.d("ExerciseRecognition", "Workout finished. Starting recognition for user $userId...")
-                                val guessedName = if (isForeground.value) {
-                                    exerciseRecognitionService.recognizeExercise(userId, prev)
-                                } else {
-                                    Log.d("ExerciseRecognition", "App in background, skipping immediate recognition.")
-                                    null
+                            if (prev.difficulty != VitruvianDeviceManager.EchoDifficulty.WARMUP) {
+                                viewModelScope.launch {
+                                    val userId = currentUserId.value
+                                    Log.d(
+                                        "ExerciseRecognition",
+                                        "Workout finished. Starting recognition for user $userId..."
+                                    )
+                                    val guessedName = if (isForeground.value) {
+                                        exerciseRecognitionService.recognizeExercise(userId, prev)
+                                    } else {
+                                        Log.d(
+                                            "ExerciseRecognition",
+                                            "App in background, skipping immediate recognition."
+                                        )
+                                        null
+                                    }
+                                    Log.d("ExerciseRecognition", "Guessed exercise name: $guessedName")
+                                    val entry = WorkoutHistoryEntry(
+                                        workoutState = prev,
+                                        timestampMillis = System.currentTimeMillis(),
+                                        exerciseName = guessedName,
+                                        wasAutomaticallyRecognized = guessedName != null
+                                    )
+                                    val id = workoutHistoryDao.insert(entry.toEntity(userId))
+                                    val finalEntry = entry.copy(id = id)
+                                    _state.update {
+                                        it.copy(
+                                            previousWorkoutExerciseName = guessedName,
+                                            previousWorkoutEntry = finalEntry
+                                        )
+                                    }
+                                    Log.d(
+                                        "ExerciseRecognition",
+                                        "Workout entry saved to history with ID $id"
+                                    )
                                 }
-                                Log.d("ExerciseRecognition", "Guessed exercise name: $guessedName")
-                                _state.update { it.copy(previousWorkoutExerciseName = guessedName) }
-                                val entry = WorkoutHistoryEntry(
-                                    workoutState = prev,
-                                    timestampMillis = System.currentTimeMillis(),
-                                    exerciseName = guessedName,
-                                    wasAutomaticallyRecognized = guessedName != null
-                                )
-                                workoutHistoryDao.insert(entry.toEntity(userId))
-                                Log.d("ExerciseRecognition", "Workout entry saved to history")
+                            } else {
+                                Log.d("ExerciseRecognition", "Warmup finished. Skipping history and recognition.")
                             }
                         }
 
@@ -420,6 +467,7 @@ class WorkoutViewModel(
                             workoutState = workoutState,
                             previousWorkoutState = updatedPrevious,
                             previousWorkoutExerciseName = updatedExerciseName,
+                            previousWorkoutEntry = updatedPreviousEntry,
                             pauseStartTimestamp = updatedPauseStart
                         )
                     }
@@ -617,6 +665,7 @@ class WorkoutViewModel(
         val workoutState: VitruvianDeviceManager.WorkoutState? = null,
         val previousWorkoutState: VitruvianDeviceManager.WorkoutState? = null,
         val previousWorkoutExerciseName: String? = null,
+        val previousWorkoutEntry: WorkoutHistoryEntry? = null,
         // Timestamp when pause started (ms since epoch). Null initially and cleared on workout start.
         val pauseStartTimestamp: Long? = null,
         val machineState: VitruvianDeviceManager.MachineState? = null,
@@ -639,6 +688,7 @@ class WorkoutViewModel(
         val showTendencies: Boolean = false,
         val showTendenciesInfo: Boolean = false,
         val tendencies: List<ExerciseTrend> = emptyList(),
+        val selectedTrendTimeframe: TrendTimeframe = TrendTimeframe.ONE_WEEK,
         val showExerciseNameEditor: Boolean = false,
         val allExerciseNames: List<String> = emptyList()
     )
@@ -652,56 +702,62 @@ class WorkoutViewModel(
     }
 
     fun onShowTendenciesClicked() {
-        viewModelScope.launch {
-            val userId = currentUserId.value
-            val history = workoutHistoryDao.getAllHistory(userId)
-            val trends = history
-                .filter { it.exerciseName != null }
-                .groupBy { it.exerciseName!! to it.difficulty }
-                .map { (key, entries) ->
-                    val (name, difficulty) = key
-                    val sortedEntries = entries.sortedBy { it.timestampMillis }
-                    val upwardTrend = if (sortedEntries.size > 1) {
-                        (sortedEntries.last().averageUpwardForce - sortedEntries.first().averageUpwardForce) / (sortedEntries.size - 1)
-                    } else {
-                        0.0
-                    }
-                    val downwardTrend = if (sortedEntries.size > 1) {
-                        (sortedEntries.last().averageDownwardForce - sortedEntries.first().averageDownwardForce) / (sortedEntries.size - 1)
-                    } else {
-                        0.0
-                    }
-
-                    val recentUpwardTrend = if (sortedEntries.size > 1) {
-                        val recentEntries = sortedEntries.takeLast(3)
-                        (recentEntries.last().averageUpwardForce - recentEntries.first().averageUpwardForce) / (recentEntries.size - 1)
-                    } else {
-                        0.0
-                    }
-
-                    val recentDownwardTrend = if (sortedEntries.size > 1) {
-                        val recentEntries = sortedEntries.takeLast(3)
-                        (recentEntries.last().averageDownwardForce - recentEntries.first().averageDownwardForce) / (recentEntries.size - 1)
-                    } else {
-                        0.0
-                    }
-
-                    ExerciseTrend(
-                        exerciseName = "$name ($difficulty)",
-                        avgUpwardTrend = upwardTrend,
-                        avgDownwardTrend = downwardTrend,
-                        recentUpwardTrend = recentUpwardTrend,
-                        recentDownwardTrend = recentDownwardTrend
-                    )
-                }
-                .sortedByDescending { abs(it.avgUpwardTrend) + abs(it.avgDownwardTrend) }
-
-            _state.update { it.copy(showTendencies = true, tendencies = trends) }
-        }
+        _state.update { it.copy(showTendencies = true) }
+        calculateTrends()
     }
 
     fun onDismissTendenciesClicked() {
         _state.update { it.copy(showTendencies = false) }
+    }
+
+    fun onTrendTimeframeChanged(timeframe: TrendTimeframe) {
+        _state.update { it.copy(selectedTrendTimeframe = timeframe) }
+        calculateTrends()
+    }
+
+    private fun calculateTrends() {
+        viewModelScope.launch {
+            val userId = currentUserId.value
+            val history = workoutHistoryDao.getAllHistory(userId)
+            val timeframe = state.value.selectedTrendTimeframe
+
+            val now = ZonedDateTime.now()
+            val limit = when (timeframe) {
+                TrendTimeframe.ONE_WEEK -> now.minus(1, ChronoUnit.WEEKS)
+                TrendTimeframe.TWO_WEEKS -> now.minus(2, ChronoUnit.WEEKS)
+                TrendTimeframe.ONE_MONTH -> now.minus(1, ChronoUnit.MONTHS)
+                TrendTimeframe.THREE_MONTHS -> now.minus(3, ChronoUnit.MONTHS)
+                TrendTimeframe.ONE_YEAR -> now.minus(1, ChronoUnit.YEARS)
+            }.toInstant().toEpochMilli()
+
+            val trends = history
+                .filter { it.exerciseName != null }
+                .groupBy { it.exerciseName!! to it.difficulty }
+                .mapNotNull { (key, entries) ->
+                    val (name, difficulty) = key
+                    val recentEntries = entries.filter { it.timestampMillis > limit }
+                    val beforeEntries = entries.filter { it.timestampMillis <= limit }
+
+                    if (recentEntries.isEmpty() || beforeEntries.isEmpty()) return@mapNotNull null
+
+                    val avgUpwardRecent = recentEntries.map { it.estimatedUpwardOneRepMax() }.average()
+                    val avgUpwardBefore = beforeEntries.map { it.estimatedUpwardOneRepMax() }.average()
+
+                    val avgDownwardRecent = recentEntries.map { it.estimatedDownwardOneRepMax() }.average()
+                    val avgDownwardBefore = beforeEntries.map { it.estimatedDownwardOneRepMax() }.average()
+
+                    ExerciseTrend(
+                        exerciseName = "$name ($difficulty)",
+                        avgUpwardTrend = avgUpwardRecent - avgUpwardBefore,
+                        avgDownwardTrend = avgDownwardRecent - avgDownwardBefore,
+                        recentUpwardTrend = avgUpwardRecent,
+                        recentDownwardTrend = avgDownwardRecent
+                    )
+                }
+                .sortedByDescending { abs(it.avgUpwardTrend) + abs(it.avgDownwardTrend) }
+
+            _state.update { it.copy(tendencies = trends) }
+        }
     }
 
     fun onShowTendenciesInfoClicked() {
@@ -825,8 +881,22 @@ class WorkoutViewModel(
                 workoutHistoryDao.updateExerciseName(entry.id, name)
                 updateExerciseFingerprint(userId, name, entry.workoutState)
             }
-            
-            _state.update { it.copy(showExerciseSelection = null) }
+
+            _state.update { s ->
+                val updatedPreviousEntry = if (s.previousWorkoutEntry?.id == entry.id) {
+                    s.previousWorkoutEntry.copy(
+                        exerciseName = name,
+                        wasAutomaticallyRecognized = false
+                    )
+                } else {
+                    s.previousWorkoutEntry
+                }
+                s.copy(
+                    showExerciseSelection = null,
+                    previousWorkoutExerciseName = if (s.previousWorkoutEntry?.id == entry.id) name else s.previousWorkoutExerciseName,
+                    previousWorkoutEntry = updatedPreviousEntry
+                )
+            }
         }
     }
 
@@ -836,6 +906,14 @@ class WorkoutViewModel(
             val userId = currentUserId.value
             workoutHistoryDao.setConfirmed(entry.id)
             updateExerciseFingerprint(userId, name, entry.workoutState)
+            _state.update { s ->
+                val updatedPreviousEntry = if (s.previousWorkoutEntry?.id == entry.id) {
+                    s.previousWorkoutEntry.copy(isConfirmed = true)
+                } else {
+                    s.previousWorkoutEntry
+                }
+                s.copy(previousWorkoutEntry = updatedPreviousEntry)
+            }
         }
     }
 
@@ -844,6 +922,11 @@ class WorkoutViewModel(
         name: String,
         workoutState: VitruvianDeviceManager.WorkoutState
     ) {
+        if (workoutState.difficulty == VitruvianDeviceManager.EchoDifficulty.WARMUP) {
+            Log.d("ExerciseRecognition", "updateExerciseFingerprint skipped for WARMUP")
+            return
+        }
+
         // Save as exercise fingerprint (average with existing if present)
         val existing = workoutHistoryDao.getExercise(userId, name, workoutState.difficulty.name)
         val exerciseEntity = if (existing != null) {
@@ -878,7 +961,32 @@ class WorkoutViewModel(
             _state.update {
                 it.copy(
                     allExerciseNames = names,
-                    previousWorkoutExerciseName = if (it.previousWorkoutExerciseName == oldName) newName else it.previousWorkoutExerciseName
+                    previousWorkoutExerciseName = if (it.previousWorkoutExerciseName == oldName) newName else it.previousWorkoutExerciseName,
+                    previousWorkoutEntry = if (it.previousWorkoutEntry?.exerciseName == oldName) {
+                        it.previousWorkoutEntry.copy(exerciseName = newName)
+                    } else {
+                        it.previousWorkoutEntry
+                    }
+                )
+            }
+        }
+    }
+
+    fun onDeleteExercise(name: String, alternativeName: String?) {
+        viewModelScope.launch {
+            workoutHistoryDao.deleteExercise(name)
+            workoutHistoryDao.renameExerciseInHistory(name, alternativeName)
+            // Refresh names
+            val names = workoutHistoryDao.getAllExerciseNames()
+            _state.update {
+                it.copy(
+                    allExerciseNames = names,
+                    previousWorkoutExerciseName = if (it.previousWorkoutExerciseName == name) alternativeName else it.previousWorkoutExerciseName,
+                    previousWorkoutEntry = if (it.previousWorkoutEntry?.exerciseName == name) {
+                        it.previousWorkoutEntry.copy(exerciseName = alternativeName)
+                    } else {
+                        it.previousWorkoutEntry
+                    }
                 )
             }
         }

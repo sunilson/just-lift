@@ -1,5 +1,7 @@
 package at.sunilson.justlift.features.workout.presentation.history
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,8 +10,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -24,6 +28,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun TendenciesSheet(
     tendencies: List<ExerciseTrend>,
+    selectedTimeframe: TrendTimeframe,
+    onTimeframeSelected: (TrendTimeframe) -> Unit,
     onInfoClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -43,6 +49,23 @@ fun TendenciesSheet(
             )
             IconButton(onClick = onInfoClick) {
                 Icon(Icons.Outlined.Info, contentDescription = "Show Info")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            TrendTimeframe.entries.forEach { timeframe ->
+                FilterChip(
+                    selected = selectedTimeframe == timeframe,
+                    onClick = { onTimeframeSelected(timeframe) },
+                    label = { Text(timeframe.label) }
+                )
             }
         }
 

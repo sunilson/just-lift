@@ -46,6 +46,7 @@ fun WorkoutDestination(
         onDismissTendenciesClicked = viewModel::onDismissTendenciesClicked,
         onShowTendenciesInfoClicked = viewModel::onShowTendenciesInfoClicked,
         onDismissTendenciesInfoClicked = viewModel::onDismissTendenciesInfoClicked,
+        onTrendTimeframeChanged = viewModel::onTrendTimeframeChanged,
         onEditExerciseName = viewModel::onEditExerciseName,
         onConfirmRecognition = viewModel::onConfirmRecognition,
         onExerciseSelected = viewModel::onExerciseSelected,
@@ -53,6 +54,7 @@ fun WorkoutDestination(
         onUserSwitchClicked = viewModel::onUserSwitchClicked,
         onOpenExerciseNameEditor = viewModel::onOpenExerciseNameEditor,
         onDismissExerciseNameEditor = viewModel::onDismissExerciseNameEditor,
-        onRenameExercise = viewModel::onRenameExercise
+        onRenameExercise = viewModel::onRenameExercise,
+        onDeleteExercise = viewModel::onDeleteExercise
     )
 }

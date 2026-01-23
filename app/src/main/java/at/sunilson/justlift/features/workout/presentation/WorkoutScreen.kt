@@ -10,11 +10,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -56,6 +58,8 @@ import com.juul.kable.ExperimentalApi
 import com.juul.kable.Peripheral
 import com.juul.kable.State
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Close
@@ -106,6 +110,7 @@ fun WorkoutScreen(
     onDismissTendenciesClicked: () -> Unit = {},
     onShowTendenciesInfoClicked: () -> Unit = {},
     onDismissTendenciesInfoClicked: () -> Unit = {},
+    onTrendTimeframeChanged: (at.sunilson.justlift.features.workout.presentation.history.TrendTimeframe) -> Unit = {},
     onEditExerciseName: (WorkoutHistoryEntry) -> Unit = {},
     onConfirmRecognition: (WorkoutHistoryEntry) -> Unit = {},
     onExerciseSelected: (String) -> Unit = {},
@@ -113,7 +118,8 @@ fun WorkoutScreen(
     onUserSwitchClicked: () -> Unit = {},
     onOpenExerciseNameEditor: () -> Unit = {},
     onDismissExerciseNameEditor: () -> Unit = {},
-    onRenameExercise: (String, String) -> Unit = { _, _ -> }
+    onRenameExercise: (String, String) -> Unit = { _, _ -> },
+    onDeleteExercise: (String, String?) -> Unit = { _, _ -> }
 ) {
     val scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState = rememberStandardBottomSheetState(skipHiddenState = false))
     val isWorkoutInProgress = state.workoutState != null && state.machineState != null
@@ -238,11 +244,33 @@ fun WorkoutScreen(
                     // Show previous set data when available (after finishing a set)
                     state.previousWorkoutState?.let { previous ->
                         Spacer(modifier = Modifier.height(24.dp))
-                        Text(
-                            text = "Previous set",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Previous set",
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            state.previousWorkoutEntry?.let { entry ->
+                                Spacer(modifier = Modifier.width(8.dp))
+                                IconButton(onClick = { onEditExerciseName(entry) }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Edit exercise name",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+
+                                if (entry.wasAutomaticallyRecognized && !entry.isConfirmed) {
+                                    IconButton(onClick = { onConfirmRecognition(entry) }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = "Confirm recognition",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
+                        }
                         Spacer(modifier = Modifier.height(12.dp))
                         WorkoutDataWidget(
                             workoutState = previous,
@@ -293,7 +321,8 @@ fun WorkoutScreen(
         ModalBottomSheet(onDismissRequest = onDismissExerciseNameEditor) {
             ExerciseNameEditorSheet(
                 exerciseNames = state.allExerciseNames,
-                onRenameExercise = onRenameExercise
+                onRenameExercise = onRenameExercise,
+                onDeleteExercise = onDeleteExercise
             )
         }
     }
@@ -314,6 +343,8 @@ fun WorkoutScreen(
         ModalBottomSheet(onDismissRequest = onDismissTendenciesClicked) {
             TendenciesSheet(
                 tendencies = state.tendencies,
+                selectedTimeframe = state.selectedTrendTimeframe,
+                onTimeframeSelected = onTrendTimeframeChanged,
                 onInfoClick = onShowTendenciesInfoClicked
             )
         }
@@ -336,12 +367,12 @@ fun WorkoutScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        "Trend (kg/session):",
+                        "Trend:",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        "The main value shows your overall average change in force per session since you started. The smaller value below it shows the trend of only the last 3 sessions, helping you see if you're currently improving faster or slower than your long-term average.",
+                        "The main value shows the difference between your estimated strength (accounting for weight and reps) in the selected timeframe and all your workouts before that timeframe. The smaller value below it shows your current average estimated strength in that timeframe.",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Spacer(modifier = Modifier.height(16.dp))

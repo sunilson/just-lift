@@ -4,6 +4,7 @@ import android.util.Log
 import at.sunilson.justlift.BuildConfig
 import at.sunilson.justlift.features.workout.data.database.ExerciseEntity
 import at.sunilson.justlift.features.workout.data.database.WorkoutHistoryDao
+import at.sunilson.justlift.features.workout.data.normalized
 import com.aallam.openai.api.chat.ChatCompletionRequest
 import com.aallam.openai.api.chat.ChatMessage
 import com.aallam.openai.api.chat.ChatRole
@@ -69,35 +70,36 @@ class ExerciseRecognitionService(
     }
 
     private fun buildPrompt(workout: VitruvianDeviceManager.WorkoutState, existing: List<ExerciseEntity>): String {
+        val normalizedWorkout = workout.normalized()
         val workoutData = """
-            - Difficulty: ${workout.difficulty}
-            - Calibrating Reps: ${workout.calibratingRepsCompleted}
-            - Max Reps Target: ${workout.maxReps ?: "Unlimited"}
-            - Upward Reps: ${workout.upwardRepetitionsCompleted}
-            - Downward Reps: ${workout.downwardRepetitionsCompleted}
-            - Time Elapsed: ${workout.timeElapsed.inWholeSeconds}s
-            - Avg Upward Force (Total): ${"%.2f".format(workout.averageUpwardForce)}
-            - Avg Downward Force (Total): ${"%.2f".format(workout.averageDownwardForce)}
-            - Avg Upward Force (Left): ${"%.2f".format(workout.averageUpwardForceLeft)}
-            - Avg Upward Force (Right): ${"%.2f".format(workout.averageUpwardForceRight)}
-            - Avg Downward Force (Left): ${"%.2f".format(workout.averageDownwardForceLeft)}
-            - Avg Downward Force (Right): ${"%.2f".format(workout.averageDownwardForceRight)}
-            - Max Upward Force: ${"%.2f".format(workout.maxUpwardForce)}
-            - Max Downward Force: ${"%.2f".format(workout.maxDownwardForce)}
-            - Avg Upward Rep Duration: ${"%.2f".format(workout.avgUpwardRepDurationMillis / 1000.0)}s
-            - Avg Downward Rep Duration: ${"%.2f".format(workout.avgDownwardRepDurationMillis / 1000.0)}s
-            - Avg Upward Peak Force Position: ${"%.3f".format(workout.avgUpwardPeakForcePosition)}
-            - Avg Downward Peak Force Position: ${"%.3f".format(workout.avgDownwardPeakForcePosition)}
-            - Avg Upward Max Velocity: ${"%.3f".format(workout.avgUpwardMaxVelocity)}
-            - Avg Downward Max Velocity: ${"%.3f".format(workout.avgDownwardMaxVelocity)}
-            - Avg Rest Duration: ${"%.2f".format(workout.avgRestDurationMillis / 1000.0)}s
-            - Avg Peak Position Range (Left): ${"%.3f".format(workout.avgMinPositionLeft)} to ${"%.3f".format(workout.avgMaxPositionLeft)}
-            - Avg Peak Position Range (Right): ${"%.3f".format(workout.avgMinPositionRight)} to ${"%.3f".format(workout.avgMaxPositionRight)}
-            - Absolute Position Range (Left): ${"%.3f".format(workout.minPositionLeft)} to ${"%.3f".format(workout.maxPositionLeft)}
-            - Absolute Position Range (Right): ${"%.3f".format(workout.minPositionRight)} to ${"%.3f".format(workout.maxPositionRight)}
+            - Difficulty: ${normalizedWorkout.difficulty}
+            - Calibrating Reps: ${normalizedWorkout.calibratingRepsCompleted}
+            - Max Reps Target: ${normalizedWorkout.maxReps ?: "Unlimited"}
+            - Upward Reps: ${normalizedWorkout.upwardRepetitionsCompleted}
+            - Downward Reps: ${normalizedWorkout.downwardRepetitionsCompleted}
+            - Time Elapsed: ${normalizedWorkout.timeElapsed.inWholeSeconds}s
+            - Avg Upward Force (Total): ${"%.2f".format(normalizedWorkout.averageUpwardForce)}
+            - Avg Downward Force (Total): ${"%.2f".format(normalizedWorkout.averageDownwardForce)}
+            - Avg Upward Force (Left): ${"%.2f".format(normalizedWorkout.averageUpwardForceLeft)}
+            - Avg Upward Force (Right): ${"%.2f".format(normalizedWorkout.averageUpwardForceRight)}
+            - Avg Downward Force (Left): ${"%.2f".format(normalizedWorkout.averageDownwardForceLeft)}
+            - Avg Downward Force (Right): ${"%.2f".format(normalizedWorkout.averageDownwardForceRight)}
+            - Max Upward Force: ${"%.2f".format(normalizedWorkout.maxUpwardForce)}
+            - Max Downward Force: ${"%.2f".format(normalizedWorkout.maxDownwardForce)}
+            - Avg Upward Rep Duration: ${"%.2f".format(normalizedWorkout.avgUpwardRepDurationMillis / 1000.0)}s
+            - Avg Downward Rep Duration: ${"%.2f".format(normalizedWorkout.avgDownwardRepDurationMillis / 1000.0)}s
+            - Avg Upward Peak Force Position: ${"%.3f".format(normalizedWorkout.avgUpwardPeakForcePosition)}
+            - Avg Downward Peak Force Position: ${"%.3f".format(normalizedWorkout.avgDownwardPeakForcePosition)}
+            - Avg Upward Max Velocity: ${"%.3f".format(normalizedWorkout.avgUpwardMaxVelocity)}
+            - Avg Downward Max Velocity: ${"%.3f".format(normalizedWorkout.avgDownwardMaxVelocity)}
+            - Avg Rest Duration: ${"%.2f".format(normalizedWorkout.avgRestDurationMillis / 1000.0)}s
+            - Avg Peak Position Range (Left): ${"%.3f".format(normalizedWorkout.avgMinPositionLeft)} to ${"%.3f".format(normalizedWorkout.avgMaxPositionLeft)}
+            - Avg Peak Position Range (Right): ${"%.3f".format(normalizedWorkout.avgMinPositionRight)} to ${"%.3f".format(normalizedWorkout.avgMaxPositionRight)}
+            - Absolute Position Range (Left): ${"%.3f".format(normalizedWorkout.minPositionLeft)} to ${"%.3f".format(normalizedWorkout.maxPositionLeft)}
+            - Absolute Position Range (Right): ${"%.3f".format(normalizedWorkout.minPositionRight)} to ${"%.3f".format(normalizedWorkout.maxPositionRight)}
         """.trimIndent()
 
-        val exercisesData = existing.groupBy { it.name }.mapValues { (_, entities) ->
+        val exercisesData = existing.map { it.normalized() }.groupBy { it.name }.mapValues { (_, entities) ->
             // Use average of all entries for this exercise name for better fingerprint
             val avgTime = entities.map { it.timeElapsedMillis }.average()
             val avgUpReps = entities.map { it.upwardRepetitionsCompleted }.average()
@@ -163,7 +165,7 @@ class ExerciseRecognitionService(
             $workoutData
             
             Instructions:
-            1. FIRST, determine if one or both cables were used. Look at the position values (Left/Right) for both the fingerprint and the current data. If a cable's position remains at or near 0, it means it was not used. Match the cable usage (single vs double) before looking at other metrics.
+            1. FIRST, determine if one or both cables were used. Look at the position values (Left/Right) for both the fingerprint and the current data. Note that single-cable exercises are normalized: if only one cable was used, its data will always appear on the "Left" side, regardless of which side was actually used. Match the cable usage (single vs double) before looking at other metrics.
             2. Compare the range of motion (positions), forces (up/down, left/right), rep counts, and timing.
             3. The "Avg Upward Rep Duration" and "Avg Downward Rep Duration" are key for distinguishing exercises with different tempos (e.g., explosive concentric vs. slow eccentric).
             4. The "Avg Upward Peak Force Position" and "Avg Downward Peak Force Position" indicate at what part of the range of motion the most force was applied (e.g., hard at the bottom vs. hard at the top).
