@@ -179,43 +179,66 @@ fun VitruvianDeviceManager.WorkoutState.toExerciseEntity(userId: Int, name: Stri
     )
 }
 
+/**
+ * Averages this exercise fingerprint with a new workout state using weighted averaging.
+ *
+ * Key design decisions:
+ * 1. Position-based metrics (ROM, peak positions) use slower averaging (0.3 weight) to maintain
+ *    stable fingerprints that accurately identify the exercise movement pattern.
+ * 2. Force and rep metrics are NOT averaged - they vary based on training intensity (volume vs weight)
+ *    and progressive overload. Averaging them would create fingerprints that don't match any
+ *    real workout pattern.
+ * 3. Timing metrics (rep duration, rest) use moderate averaging (0.3 weight) as they're somewhat
+ *    characteristic of the exercise but can vary with fatigue.
+ */
 fun ExerciseEntity.averageWith(workoutState: VitruvianDeviceManager.WorkoutState): ExerciseEntity {
     val normalizedEntity = this.normalized()
     val normalizedState = workoutState.normalized()
 
+    // Weight for exponential moving average of position metrics
+    // Lower weight = slower adaptation = more stable fingerprint
+    val positionWeight = 0.3
+    val timingWeight = 0.3
+
+    fun weightedAvg(old: Double, new: Double, weight: Double): Double =
+        old * (1 - weight) + new * weight
+
     return normalizedEntity.copy(
-        calibratingRepsCompleted = ((normalizedEntity.calibratingRepsCompleted + normalizedState.calibratingRepsCompleted) / 2.0).roundToInt(),
-        maxReps = if (normalizedEntity.maxReps != null && normalizedState.maxReps != null) {
-            ((normalizedEntity.maxReps + normalizedState.maxReps) / 2.0).roundToInt()
-        } else {
-            normalizedEntity.maxReps ?: normalizedState.maxReps
-        },
-        upwardRepetitionsCompleted = ((normalizedEntity.upwardRepetitionsCompleted + normalizedState.upwardRepetitionsCompleted) / 2.0).roundToInt(),
-        downwardRepetitionsCompleted = ((normalizedEntity.downwardRepetitionsCompleted + normalizedState.downwardRepetitionsCompleted) / 2.0).roundToInt(),
-        timeElapsedMillis = ((normalizedEntity.timeElapsedMillis + normalizedState.timeElapsed.inWholeMilliseconds) / 2.0).toLong(),
-        averageUpwardForce = (normalizedEntity.averageUpwardForce + normalizedState.averageUpwardForce) / 2.0,
-        averageDownwardForce = (normalizedEntity.averageDownwardForce + normalizedState.averageDownwardForce) / 2.0,
-        maxUpwardForce = (normalizedEntity.maxUpwardForce + normalizedState.maxUpwardForce) / 2.0,
-        maxDownwardForce = (normalizedEntity.maxDownwardForce + normalizedState.maxDownwardForce) / 2.0,
-        averageUpwardForceLeft = (normalizedEntity.averageUpwardForceLeft + normalizedState.averageUpwardForceLeft) / 2.0,
-        averageUpwardForceRight = (normalizedEntity.averageUpwardForceRight + normalizedState.averageUpwardForceRight) / 2.0,
-        averageDownwardForceLeft = (normalizedEntity.averageDownwardForceLeft + normalizedState.averageDownwardForceLeft) / 2.0,
-        averageDownwardForceRight = (normalizedEntity.averageDownwardForceRight + normalizedState.averageDownwardForceRight) / 2.0,
-        minPositionLeft = (normalizedEntity.minPositionLeft + normalizedState.minPositionLeft) / 2.0,
-        maxPositionLeft = (normalizedEntity.maxPositionLeft + normalizedState.maxPositionLeft) / 2.0,
-        minPositionRight = (normalizedEntity.minPositionRight + normalizedState.minPositionRight) / 2.0,
-        maxPositionRight = (normalizedEntity.maxPositionRight + normalizedState.maxPositionRight) / 2.0,
-        avgMinPositionLeft = (normalizedEntity.avgMinPositionLeft + normalizedState.avgMinPositionLeft) / 2.0,
-        avgMaxPositionLeft = (normalizedEntity.avgMaxPositionLeft + normalizedState.avgMaxPositionLeft) / 2.0,
-        avgMinPositionRight = (normalizedEntity.avgMinPositionRight + normalizedState.avgMinPositionRight) / 2.0,
-        avgMaxPositionRight = (normalizedEntity.avgMaxPositionRight + normalizedState.avgMaxPositionRight) / 2.0,
-        avgUpwardRepDurationMillis = (normalizedEntity.avgUpwardRepDurationMillis + normalizedState.avgUpwardRepDurationMillis) / 2.0,
-        avgDownwardRepDurationMillis = (normalizedEntity.avgDownwardRepDurationMillis + normalizedState.avgDownwardRepDurationMillis) / 2.0,
-        avgUpwardPeakForcePosition = (normalizedEntity.avgUpwardPeakForcePosition + normalizedState.avgUpwardPeakForcePosition) / 2.0,
-        avgDownwardPeakForcePosition = (normalizedEntity.avgDownwardPeakForcePosition + normalizedState.avgDownwardPeakForcePosition) / 2.0,
-        avgUpwardMaxVelocity = (normalizedEntity.avgUpwardMaxVelocity + normalizedState.avgUpwardMaxVelocity) / 2.0,
-        avgDownwardMaxVelocity = (normalizedEntity.avgDownwardMaxVelocity + normalizedState.avgDownwardMaxVelocity) / 2.0,
-        avgRestDurationMillis = (normalizedEntity.avgRestDurationMillis + normalizedState.avgRestDurationMillis) / 2.0
+        // Keep calibrating reps and maxReps as-is (they're session settings, not fingerprint data)
+        calibratingRepsCompleted = normalizedEntity.calibratingRepsCompleted,
+        maxReps = normalizedEntity.maxReps,
+        // Don't average force/rep metrics - they vary with training intensity
+        // Keep the original fingerprint values to avoid drift from volume/weight variations
+        upwardRepetitionsCompleted = normalizedEntity.upwardRepetitionsCompleted,
+        downwardRepetitionsCompleted = normalizedEntity.downwardRepetitionsCompleted,
+        timeElapsedMillis = normalizedEntity.timeElapsedMillis,
+        averageUpwardForce = normalizedEntity.averageUpwardForce,
+        averageDownwardForce = normalizedEntity.averageDownwardForce,
+        maxUpwardForce = normalizedEntity.maxUpwardForce,
+        maxDownwardForce = normalizedEntity.maxDownwardForce,
+        averageUpwardForceLeft = normalizedEntity.averageUpwardForceLeft,
+        averageUpwardForceRight = normalizedEntity.averageUpwardForceRight,
+        averageDownwardForceLeft = normalizedEntity.averageDownwardForceLeft,
+        averageDownwardForceRight = normalizedEntity.averageDownwardForceRight,
+        // Position metrics - use weighted averaging for stable movement pattern recognition
+        minPositionLeft = weightedAvg(normalizedEntity.minPositionLeft, normalizedState.minPositionLeft, positionWeight),
+        maxPositionLeft = weightedAvg(normalizedEntity.maxPositionLeft, normalizedState.maxPositionLeft, positionWeight),
+        minPositionRight = weightedAvg(normalizedEntity.minPositionRight, normalizedState.minPositionRight, positionWeight),
+        maxPositionRight = weightedAvg(normalizedEntity.maxPositionRight, normalizedState.maxPositionRight, positionWeight),
+        avgMinPositionLeft = weightedAvg(normalizedEntity.avgMinPositionLeft, normalizedState.avgMinPositionLeft, positionWeight),
+        avgMaxPositionLeft = weightedAvg(normalizedEntity.avgMaxPositionLeft, normalizedState.avgMaxPositionLeft, positionWeight),
+        avgMinPositionRight = weightedAvg(normalizedEntity.avgMinPositionRight, normalizedState.avgMinPositionRight, positionWeight),
+        avgMaxPositionRight = weightedAvg(normalizedEntity.avgMaxPositionRight, normalizedState.avgMaxPositionRight, positionWeight),
+        // Timing metrics - moderately stable, can vary with fatigue
+        avgUpwardRepDurationMillis = weightedAvg(normalizedEntity.avgUpwardRepDurationMillis, normalizedState.avgUpwardRepDurationMillis, timingWeight),
+        avgDownwardRepDurationMillis = weightedAvg(normalizedEntity.avgDownwardRepDurationMillis, normalizedState.avgDownwardRepDurationMillis, timingWeight),
+        // Peak force position - characteristic of exercise but can have slight variation
+        avgUpwardPeakForcePosition = weightedAvg(normalizedEntity.avgUpwardPeakForcePosition, normalizedState.avgUpwardPeakForcePosition, positionWeight),
+        avgDownwardPeakForcePosition = weightedAvg(normalizedEntity.avgDownwardPeakForcePosition, normalizedState.avgDownwardPeakForcePosition, positionWeight),
+        // Velocity - somewhat characteristic but varies with load
+        avgUpwardMaxVelocity = weightedAvg(normalizedEntity.avgUpwardMaxVelocity, normalizedState.avgUpwardMaxVelocity, timingWeight),
+        avgDownwardMaxVelocity = weightedAvg(normalizedEntity.avgDownwardMaxVelocity, normalizedState.avgDownwardMaxVelocity, timingWeight),
+        avgRestDurationMillis = weightedAvg(normalizedEntity.avgRestDurationMillis, normalizedState.avgRestDurationMillis, timingWeight)
     )
 }
 
