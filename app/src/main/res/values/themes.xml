@@ -1,5 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.JustLift" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Base app theme -->
+    <style name="Theme.JustLift" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- Splash screen theme with animated icon -->
+    <style name="Theme.JustLift.Splash" parent="Theme.SplashScreen">
+        <!-- Splash screen background - dark for premium feel -->
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <!-- Animated icon in the center -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+        <!-- Animation duration -->
+        <item name="windowSplashScreenAnimationDuration">1000</item>
+        <!-- Icon background (circle behind the icon) -->
+        <item name="windowSplashScreenIconBackgroundColor">@color/splash_icon_background</item>
+        <!-- Theme to switch to after splash -->
+        <item name="postSplashScreenTheme">@style/Theme.JustLift</item>
+    </style>
 </resources>

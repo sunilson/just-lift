@@ -106,6 +106,8 @@ dependencies {
     implementation(libs.paging.compose)
     implementation(libs.openai.client)
     implementation(libs.ktor.client.okhttp)
+    implementation(libs.cloudy)
+    implementation(libs.androidx.core.splashscreen)
     ksp(libs.room.compiler)
     ksp(libs.koin.ksp.compiler)
 

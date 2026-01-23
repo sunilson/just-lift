@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:composeinternals.com)",
+      "WebFetch(domain:kyant.gitbook.io)",
+      "WebFetch(domain:central.sonatype.com)"
+    ]
+  }
+}

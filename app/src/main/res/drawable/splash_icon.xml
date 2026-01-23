@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Background circle with gradient feel -->
+    <path
+        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0"
+        android:fillColor="#FF6B4E"/>
+
+    <!-- Inner glow circle -->
+    <path
+        android:pathData="M54,54m-35,0a35,35 0,1 1,70 0a35,35 0,1 1,-70 0"
+        android:fillColor="#FF8A6B"/>
+
+    <!-- Dumbbell bar (horizontal) -->
+    <path
+        android:pathData="M30,51h48v6h-48z"
+        android:fillColor="#FFFFFF"/>
+
+    <!-- Left weight plate outer -->
+    <path
+        android:pathData="M26,40h8v28h-8z"
+        android:fillColor="#FFFFFF"/>
+
+    <!-- Left weight plate inner -->
+    <path
+        android:pathData="M22,44h4v20h-4z"
+        android:fillColor="#FFFFFF"/>
+
+    <!-- Right weight plate outer -->
+    <path
+        android:pathData="M74,40h8v28h-8z"
+        android:fillColor="#FFFFFF"/>
+
+    <!-- Right weight plate inner -->
+    <path
+        android:pathData="M82,44h4v20h-4z"
+        android:fillColor="#FFFFFF"/>
+
+    <!-- Accent shine on left weight -->
+    <path
+        android:pathData="M27,42h2v24h-2z"
+        android:fillColor="#FFCEC4"/>
+
+    <!-- Accent shine on right weight -->
+    <path
+        android:pathData="M75,42h2v24h-2z"
+        android:fillColor="#FFCEC4"/>
+</vector>

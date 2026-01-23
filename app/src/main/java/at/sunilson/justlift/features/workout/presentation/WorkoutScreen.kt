@@ -1,11 +1,11 @@
 package at.sunilson.justlift.features.workout.presentation
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -16,72 +16,75 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.outlined.Bluetooth
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.BottomSheetScaffold
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager
+import androidx.paging.compose.LazyPagingItems
 import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager.EchoDifficulty
+import at.sunilson.justlift.features.workout.presentation.history.HistoryOverlay
+import at.sunilson.justlift.features.workout.presentation.history.TendenciesSheet
+import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryEntry
+import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryUiModel
 import at.sunilson.justlift.features.workout.presentation.preview.FakePeripheral
 import at.sunilson.justlift.features.workout.presentation.widgets.ConnectionWidget
+import at.sunilson.justlift.features.workout.presentation.widgets.DifficultySettingsSheet
+import at.sunilson.justlift.features.workout.presentation.widgets.ExerciseNameEditorSheet
+import at.sunilson.justlift.features.workout.presentation.widgets.ExerciseSelectionSheet
 import at.sunilson.justlift.features.workout.presentation.widgets.PauseTimerWidget
 import at.sunilson.justlift.features.workout.presentation.widgets.WorkoutConfigurationWidget
 import at.sunilson.justlift.features.workout.presentation.widgets.WorkoutDataWidget
 import at.sunilson.justlift.shared.presentation.PreviewLightDarkDevices
 import at.sunilson.justlift.shared.presentation.ScreenPreview
+import at.sunilson.justlift.shared.presentation.animations.JustLiftAnimations
+import at.sunilson.justlift.shared.presentation.components.AnimatedMeshGradientBackground
+import at.sunilson.justlift.shared.presentation.components.GlassButton
+import at.sunilson.justlift.shared.presentation.components.GlassCard
+import at.sunilson.justlift.shared.presentation.theme.JustLiftTheme
 import com.juul.kable.ExperimentalApi
 import com.juul.kable.Peripheral
 import com.juul.kable.State
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.outlined.Bluetooth
-import androidx.compose.material.icons.outlined.History
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Tune
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
-import at.sunilson.justlift.features.workout.presentation.history.HistoryOverlay
-import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryEntry
-import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistoryUiModel
-import at.sunilson.justlift.features.workout.presentation.history.TendenciesSheet
-import androidx.compose.ui.zIndex
-import at.sunilson.justlift.features.workout.presentation.widgets.ExerciseSelectionSheet
-import at.sunilson.justlift.features.workout.presentation.widgets.DifficultySettingsSheet
-import at.sunilson.justlift.features.workout.presentation.widgets.ExerciseNameEditorSheet
-import androidx.paging.compose.LazyPagingItems
 
 @OptIn(ExperimentalApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -121,12 +124,14 @@ fun WorkoutScreen(
     onRenameExercise: (String, String) -> Unit = { _, _ -> },
     onDeleteExercise: (String, String?) -> Unit = { _, _ -> }
 ) {
-    val scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState = rememberStandardBottomSheetState(skipHiddenState = false))
+    val scaffoldState = rememberBottomSheetScaffoldState(
+        bottomSheetState = rememberStandardBottomSheetState(skipHiddenState = false)
+    )
     val isWorkoutInProgress = state.workoutState != null && state.machineState != null
     val isConnected = state.connectedPeripheralState is State.Connected
     val starting = state.autoStartInSeconds != null
     val scope = rememberCoroutineScope()
-    // Show the sheet when disconnected, hide when connected
+
     LaunchedEffect(isConnected) {
         if (isConnected) {
             scaffoldState.bottomSheetState.hide()
@@ -135,171 +140,258 @@ fun WorkoutScreen(
         }
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Subtle animated mesh gradient background
+        AnimatedMeshGradientBackground(
+            modifier = Modifier.fillMaxSize(),
+            animationDuration = 15000
+        )
 
-    BottomSheetScaffold(
-        scaffoldState = scaffoldState,
-        sheetSwipeEnabled = true,
-        topBar = {
-            TopAppBar(
-                title = { Text("Just Lift") },
-                actions = {
-                    IconButton(onClick = onUserSwitchClicked) {
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    MaterialTheme.colorScheme.secondaryContainer,
-                                    MaterialTheme.shapes.small
-                                )
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = currentUserId.toString(),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        }
-                    }
-                    IconButton(onClick = onOpenDifficultySettings) {
-                        Icon(imageVector = Icons.Outlined.Tune, contentDescription = "Difficulty settings")
-                    }
-                    IconButton(onClick = onHistoryClicked) {
-                        Icon(imageVector = androidx.compose.material.icons.Icons.Outlined.History, contentDescription = "History")
-                    }
-                    IconButton(onClick = { scope.launch { scaffoldState.bottomSheetState.expand() } }) {
-                        Icon(imageVector = Icons.Outlined.Bluetooth, contentDescription = "Connect")
-                    }
-                }
-            )
-        },
-        sheetContent = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                ConnectionWidget(
-                    availableDevices = state.availablePeripherals.toList(),
-                    connectedPeripheral = state.connectedPeripheral,
-                    isAutoConnecting = state.isAutoConnecting,
-                    savedDeviceName = state.savedDevice?.name ?: state.savedDevice?.id,
-                    onDeviceSelected = onDeviceSelected,
-                    onClearSavedDevice = onClearSavedDeviceClicked,
-                    onDisconnectClicked = onDisconnectClicked
-                )
-            }
-        }
-    ) {
+        // Dark overlay for content readability
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(it)
-        ) {
-            Column(
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.background.copy(alpha = 0.92f),
+                            MaterialTheme.colorScheme.background.copy(alpha = 0.97f)
+                        )
+                    )
+                )
+        )
+
+        BottomSheetScaffold(
+            scaffoldState = scaffoldState,
+            sheetSwipeEnabled = true,
+            containerColor = Color.Transparent,
+            sheetContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+            topBar = {
+                GlassTopAppBar(
+                    currentUserId = currentUserId,
+                    onUserSwitchClicked = onUserSwitchClicked,
+                    onOpenDifficultySettings = onOpenDifficultySettings,
+                    onHistoryClicked = onHistoryClicked,
+                    onBluetoothClicked = { scope.launch { scaffoldState.bottomSheetState.expand() } }
+                )
+            },
+            sheetContent = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    ConnectionWidget(
+                        availableDevices = state.availablePeripherals.toList(),
+                        connectedPeripheral = state.connectedPeripheral,
+                        isAutoConnecting = state.isAutoConnecting,
+                        savedDeviceName = state.savedDevice?.name ?: state.savedDevice?.id,
+                        onDeviceSelected = onDeviceSelected,
+                        onClearSavedDevice = onClearSavedDeviceClicked,
+                        onDisconnectClicked = onDisconnectClicked
+                    )
+                }
+            }
+        ) { paddingValues ->
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 16.dp)
-                    .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(paddingValues)
             ) {
-                if (starting) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Auto start in seconds: ${state.autoStartInSeconds}")
-                }
-
-                if (isWorkoutInProgress) {
-                    WorkoutDataWidget(
-                        workoutState = state.workoutState,
-                        machineState = state.machineState
-                    )
-                }
-
-                if (!isWorkoutInProgress && isConnected && !starting) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    WorkoutConfigurationWidget(
-                        state = state,
-                        onEccentricSliderValueChange = onEccentricSliderValueChange,
-                        onRepetitionsSliderValueChange = onRepetitionsSliderValueChange,
-                        onEchoDifficultyChange = onEchoDifficultyChange
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        "Lift and hold to start workout",
-                        style = MaterialTheme.typography.headlineMedium,
-                    )
-                    // Show pause timer (if currently paused) slightly smaller below the instruction
-                    state.pauseStartTimestamp?.let { pauseStart ->
-                        Spacer(modifier = Modifier.height(8.dp))
-                        PauseTimerWidget(pauseStartTimestamp = pauseStart)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-                if (isConnected && !isWorkoutInProgress) {
-                    Button(onClick = { onDisconnectClicked() }) {
-                        Text("Disconnect Device")
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 16.dp)
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Auto-start countdown
+                    AnimatedVisibility(
+                        visible = starting,
+                        enter = JustLiftAnimations.glassEnter()
+                    ) {
+                        GlassCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            tint = JustLiftTheme.glassColors.tintPrimary
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "Auto start in ${state.autoStartInSeconds}s",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
                     }
 
-                    // Show previous set data when available (after finishing a set)
-                    state.previousWorkoutState?.let { previous ->
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "Previous set",
-                                style = MaterialTheme.typography.headlineSmall,
-                                color = MaterialTheme.colorScheme.primary
+                    // Active workout display
+                    AnimatedVisibility(
+                        visible = isWorkoutInProgress,
+                        enter = JustLiftAnimations.glassEnter()
+                    ) {
+                        WorkoutDataWidget(
+                            workoutState = state.workoutState,
+                            machineState = state.machineState
+                        )
+                    }
+
+                    // Connected but no workout - show configuration
+                    AnimatedVisibility(
+                        visible = !isWorkoutInProgress && isConnected && !starting,
+                        enter = JustLiftAnimations.slideUpEnter()
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            WorkoutConfigurationWidget(
+                                state = state,
+                                onEccentricSliderValueChange = onEccentricSliderValueChange,
+                                onRepetitionsSliderValueChange = onRepetitionsSliderValueChange,
+                                onEchoDifficultyChange = onEchoDifficultyChange
                             )
-                            state.previousWorkoutEntry?.let { entry ->
-                                Spacer(modifier = Modifier.width(8.dp))
-                                IconButton(onClick = { onEditExerciseName(entry) }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "Edit exercise name",
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
+                            Spacer(modifier = Modifier.height(24.dp))
 
-                                if (entry.wasAutomaticallyRecognized && !entry.isConfirmed) {
-                                    IconButton(onClick = { onConfirmRecognition(entry) }) {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = "Confirm recognition",
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
+                            // Premium instruction card
+                            GlassCard(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(20.dp),
+                                tint = JustLiftTheme.glassColors.tintTertiary
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        "Ready to lift",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        "Lift and hold to start workout",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    // Pause timer if applicable
+                                    state.pauseStartTimestamp?.let { pauseStart ->
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        PauseTimerWidget(pauseStartTimestamp = pauseStart)
                                     }
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        WorkoutDataWidget(
-                            workoutState = previous,
-                            machineState = null,
-                            exerciseName = state.previousWorkoutExerciseName
-                        )
                     }
-                }
-                if (isConnected && isWorkoutInProgress) {
-                    Button(onClick = { onStopWorkoutClicked() }) { Text("Stop Workout") }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Disconnect button when connected and not in workout
+                    AnimatedVisibility(
+                        visible = isConnected && !isWorkoutInProgress,
+                        enter = JustLiftAnimations.slideUpEnter(delayMillis = 200)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            GlassButton(
+                                onClick = onDisconnectClicked,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                glowColor = JustLiftTheme.glassColors.glowSecondary
+                            ) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "Disconnect Device",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+
+                            // Previous set data
+                            state.previousWorkoutState?.let { previous ->
+                                Spacer(modifier = Modifier.height(32.dp))
+                                PreviousSetSection(
+                                    previousWorkoutState = previous,
+                                    previousWorkoutEntry = state.previousWorkoutEntry,
+                                    previousWorkoutExerciseName = state.previousWorkoutExerciseName,
+                                    onEditExerciseName = onEditExerciseName,
+                                    onConfirmRecognition = onConfirmRecognition
+                                )
+                            }
+                        }
+                    }
+
+                    // Stop workout button during workout
+                    AnimatedVisibility(
+                        visible = isConnected && isWorkoutInProgress,
+                        enter = JustLiftAnimations.slideUpEnter()
+                    ) {
+                        GlassButton(
+                            onClick = onStopWorkoutClicked,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            glowColor = JustLiftTheme.glassColors.glowPrimary
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            colors = listOf(
+                                                JustLiftTheme.extendedColors.gradientStart,
+                                                JustLiftTheme.extendedColors.gradientEnd
+                                            )
+                                        )
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "Stop Workout",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(32.dp))
                 }
             }
 
-        }
-        AnimatedVisibility(
-            enter = fadeIn(),
-            exit = fadeOut(),
-            visible = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded
-        ) {
-            Box(
-                modifier = Modifier
-                    .clickable {}
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f))
-            )
+            // Scrim for bottom sheet
+            AnimatedVisibility(
+                enter = fadeIn(),
+                exit = fadeOut(),
+                visible = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clickable {}
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.5f))
+                )
+            }
         }
     }
 
-    // Difficulty settings modal bottom sheet (independent of connection sheet)
+    // Modal bottom sheets
     if (state.showDifficultySheet) {
         ModalBottomSheet(onDismissRequest = onDismissDifficultySettings) {
             DifficultySettingsSheet(
@@ -400,6 +492,140 @@ fun WorkoutScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GlassTopAppBar(
+    currentUserId: Int,
+    onUserSwitchClicked: () -> Unit,
+    onOpenDifficultySettings: () -> Unit,
+    onHistoryClicked: () -> Unit,
+    onBluetoothClicked: () -> Unit
+) {
+    TopAppBar(
+        title = {
+            Text(
+                "Just Lift",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = Color.Transparent
+        ),
+        actions = {
+            // User ID badge with glass effect
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.secondaryContainer,
+                                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+                            )
+                        )
+                    )
+                    .clickable(onClick = onUserSwitchClicked)
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = currentUserId.toString(),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+            Spacer(modifier = Modifier.width(4.dp))
+            IconButton(onClick = onOpenDifficultySettings) {
+                Icon(
+                    imageVector = Icons.Outlined.Tune,
+                    contentDescription = "Settings",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            IconButton(onClick = onHistoryClicked) {
+                Icon(
+                    imageVector = Icons.Outlined.History,
+                    contentDescription = "History",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            IconButton(onClick = onBluetoothClicked) {
+                Icon(
+                    imageVector = Icons.Outlined.Bluetooth,
+                    contentDescription = "Connect",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalApi::class)
+@Composable
+private fun PreviousSetSection(
+    previousWorkoutState: at.sunilson.justlift.features.workout.data.VitruvianDeviceManager.WorkoutState,
+    previousWorkoutEntry: WorkoutHistoryEntry?,
+    previousWorkoutExerciseName: String?,
+    onEditExerciseName: (WorkoutHistoryEntry) -> Unit,
+    onConfirmRecognition: (WorkoutHistoryEntry) -> Unit
+) {
+    val scale by animateFloatAsState(
+        targetValue = 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "previous_scale"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .scale(scale)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = "Previous Set",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            previousWorkoutEntry?.let { entry ->
+                IconButton(onClick = { onEditExerciseName(entry) }) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit exercise name",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                if (entry.wasAutomaticallyRecognized && !entry.isConfirmed) {
+                    IconButton(onClick = { onConfirmRecognition(entry) }) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Confirm recognition",
+                            tint = JustLiftTheme.extendedColors.success,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        WorkoutDataWidget(
+            workoutState = previousWorkoutState,
+            machineState = null,
+            exerciseName = previousWorkoutExerciseName
+        )
+    }
+}
+
 @PreviewLightDarkDevices
 @Composable
 private fun `Devices available`() {
@@ -436,14 +662,14 @@ private fun `Workout in progress`() {
             state = WorkoutViewModel.State(
                 connectedPeripheral = FakePeripheral("Machine 1"),
                 connectedPeripheralState = State.Connected(CoroutineScope(Dispatchers.Main)),
-                workoutState = VitruvianDeviceManager.WorkoutState(
+                workoutState = at.sunilson.justlift.features.workout.data.VitruvianDeviceManager.WorkoutState(
                     calibratingRepsCompleted = 3,
                     maxReps = 10,
                     upwardRepetitionsCompleted = 10,
                     downwardRepetitionsCompleted = 10,
                     timeElapsed = 10.toDuration(DurationUnit.SECONDS)
                 ),
-                machineState = VitruvianDeviceManager.MachineState(
+                machineState = at.sunilson.justlift.features.workout.data.VitruvianDeviceManager.MachineState(
                     forceLeftCable = 20.0,
                     forceRightCable = 22.0,
                     positionCableLeft = 0.75,

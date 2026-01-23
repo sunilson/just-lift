@@ -7,4 +7,10 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Splash screen colors matching the coral/orange design system -->
+    <color name="splash_background">#0A0E1A</color>
+    <color name="splash_icon_background">#1A1E2E</color>
+    <color name="primary_coral">#FF6B4E</color>
+    <color name="primary_coral_light">#FF8A6B</color>
 </resources>

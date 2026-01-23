@@ -17,6 +17,8 @@ room = "2.7.0-alpha13"
 paging = "3.3.6"
 openai = "3.8.2"
 ktor = "2.3.12"
+cloudy = "0.5.0"
+splashscreen = "1.0.1"
 
 [libraries]
 androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
@@ -60,6 +62,8 @@ paging-runtime = { group = "androidx.paging", name = "paging-runtime", version.r
 paging-compose = { group = "androidx.paging", name = "paging-compose", version.ref = "paging" }
 openai-client = { module = "com.aallam.openai:openai-client", version.ref = "openai" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+cloudy = { module = "com.github.skydoves:cloudy", version.ref = "cloudy" }
+androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "splashscreen" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
