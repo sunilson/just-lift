@@ -103,7 +103,7 @@ class ExerciseRecognitionService(
         while (attempt <= maxAttempts) {
             try {
                 val chatCompletionRequest = ChatCompletionRequest(
-                    model = ModelId("gpt-4.1-nano"),
+                    model = ModelId("gpt-4.1-mini"),
                     messages = listOf(
                         ChatMessage(
                             role = ChatRole.User,
