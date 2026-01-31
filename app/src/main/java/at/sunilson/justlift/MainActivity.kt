@@ -5,9 +5,11 @@ import android.os.Bundle
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.animation.doOnEnd
+import androidx.core.view.WindowCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import at.sunilson.justlift.shared.audio.AppSoundPlayer
 import at.sunilson.justlift.shared.presentation.theme.JustLiftTheme
@@ -29,6 +31,17 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            // Force dark status bar icons whenever window gains focus
+            WindowCompat.getInsetsController(window, window.decorView).apply {
+                isAppearanceLightStatusBars = true
+                isAppearanceLightNavigationBars = true
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,7 +94,19 @@ class MainActivity : ComponentActivity() {
             scaleY.start()
         }
 
-        enableEdgeToEdge()
+        // Use light style for status bar to get dark icons
+        // The scrim color tells the system the bar is "light", so use dark icons
+        // We use a nearly transparent white to maintain edge-to-edge while signaling light theme
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(
+                scrim = android.graphics.Color.TRANSPARENT,
+                darkScrim = android.graphics.Color.TRANSPARENT
+            ),
+            navigationBarStyle = SystemBarStyle.light(
+                scrim = android.graphics.Color.TRANSPARENT,
+                darkScrim = android.graphics.Color.TRANSPARENT
+            )
+        )
 
         setContent {
             JustLiftTheme {
