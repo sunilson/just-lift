@@ -6,9 +6,9 @@ import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.core.animation.doOnEnd
+import androidx.core.view.WindowCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import at.sunilson.justlift.shared.audio.AppSoundPlayer
 import at.sunilson.justlift.shared.presentation.theme.JustLiftTheme
@@ -82,12 +82,12 @@ class MainActivity : ComponentActivity() {
             scaleY.start()
         }
 
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.light(
-                android.graphics.Color.TRANSPARENT,
-                android.graphics.Color.TRANSPARENT
-            )
-        )
+        enableEdgeToEdge()
+
+        // Force dark status bar icons (light status bar appearance)
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = true
+        }
 
         setContent {
             JustLiftTheme {
