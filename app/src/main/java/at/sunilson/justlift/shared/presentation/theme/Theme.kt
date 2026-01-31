@@ -1,5 +1,6 @@
 package at.sunilson.justlift.shared.presentation.theme
 
+import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -7,8 +8,11 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 /**
  * Extended color palette for semantic colors not in Material3
@@ -213,54 +217,54 @@ private val DarkGlassColors = GlassColors(
     accentLime = AccentLime
 )
 
-// Premium dark color scheme
+// Premium dark color scheme - MAXIMUM accessibility contrast per M3 Expressive
 private val DarkColorScheme = darkColorScheme(
-    primary = Primary80,
-    onPrimary = Primary10,
-    primaryContainer = Primary30,
-    onPrimaryContainer = Primary90,
-    secondary = Secondary80,
-    onSecondary = Secondary10,
-    secondaryContainer = Secondary30,
-    onSecondaryContainer = Secondary90,
-    tertiary = Tertiary80,
-    onTertiary = Tertiary10,
-    tertiaryContainer = Tertiary30,
-    onTertiaryContainer = Tertiary90,
-    error = ErrorDark,
-    background = SurfaceContainerLowestDark,
-    onBackground = Color(0xFFE6E1E5),
-    surface = SurfaceContainerDark,
-    onSurface = Color(0xFFE6E1E5),
-    surfaceVariant = SurfaceContainerHighDark,
-    onSurfaceVariant = Color(0xFFCAC4D0),
-    outline = Color(0xFF938F99),
-    outlineVariant = Color(0xFF49454F)
+    primary = Color(0xFFFFD8CC),  // Brighter primary for maximum visibility
+    onPrimary = Color(0xFF2D0800),  // Very dark for contrast
+    primaryContainer = Color(0xFF6B2D1A),  // Richer container
+    onPrimaryContainer = Color(0xFFFFFFFF),  // White for maximum contrast
+    secondary = Color(0xFFD4F5FF),  // Brighter secondary
+    onSecondary = Color(0xFF00252E),  // Very dark for contrast
+    secondaryContainer = Color(0xFF004D67),  // Richer container
+    onSecondaryContainer = Color(0xFFFFFFFF),  // White for maximum contrast
+    tertiary = Color(0xFF9EF7D5),  // Brighter tertiary
+    onTertiary = Color(0xFF00251C),  // Very dark for contrast
+    tertiaryContainer = Color(0xFF005142),  // Richer container
+    onTertiaryContainer = Color(0xFFFFFFFF),  // White for maximum contrast
+    error = Color(0xFFFFDAD6),  // Brighter error
+    background = Color(0xFF0A0A0F),  // True dark background
+    onBackground = Color(0xFFFFFFFF),  // Pure white for maximum contrast
+    surface = Color(0xFF141418),  // Slightly lighter surface
+    onSurface = Color(0xFFFFFFFF),  // Pure white for maximum contrast
+    surfaceVariant = Color(0xFF252530),  // Clearer distinction
+    onSurfaceVariant = Color(0xFFF5F0F7),  // Very bright for maximum contrast
+    outline = Color(0xFFE0DBE4),  // Very bright for clear visibility
+    outlineVariant = Color(0xFFA09AA5)  // Brighter for better visibility
 )
 
-// Premium light color scheme
+// Premium light color scheme - MAXIMUM accessibility contrast per M3 Expressive
 private val LightColorScheme = lightColorScheme(
-    primary = Primary40,
+    primary = Color(0xFF6B2D1A),  // Darker primary for excellent contrast (7:1+)
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Primary90,
-    onPrimaryContainer = Primary10,
-    secondary = Secondary40,
+    primaryContainer = Color(0xFFFFE4DE),  // Lighter, more visible container
+    onPrimaryContainer = Color(0xFF2D0800),  // Very dark for maximum contrast
+    secondary = Color(0xFF004455),  // Darker secondary for excellent contrast
     onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Secondary90,
-    onSecondaryContainer = Secondary10,
-    tertiary = Tertiary40,
+    secondaryContainer = Color(0xFFD4F5FF),  // Lighter, more visible container
+    onSecondaryContainer = Color(0xFF001F2A),  // Very dark for maximum contrast
+    tertiary = Color(0xFF005142),  // Darker tertiary
     onTertiary = Color(0xFFFFFFFF),
-    tertiaryContainer = Tertiary90,
-    onTertiaryContainer = Tertiary10,
-    error = ErrorLight,
-    background = SurfaceContainerLowest,
-    onBackground = Color(0xFF1C1B1F),
-    surface = SurfaceContainer,
-    onSurface = Color(0xFF1C1B1F),
-    surfaceVariant = SurfaceContainerHigh,
-    onSurfaceVariant = Color(0xFF49454F),
-    outline = Color(0xFF79747E),
-    outlineVariant = Color(0xFFCAC4D0)
+    tertiaryContainer = Color(0xFFCAFFF0),  // Lighter container
+    onTertiaryContainer = Color(0xFF002019),  // Very dark for maximum contrast
+    error = Color(0xFF9B0000),  // Darker error for excellent contrast
+    background = Color(0xFFFFFBFF),  // Slightly warm white
+    onBackground = Color(0xFF000000),  // Pure black for maximum contrast
+    surface = Color(0xFFF8F5F8),  // Warmer surface
+    onSurface = Color(0xFF000000),  // Pure black for maximum contrast
+    surfaceVariant = Color(0xFFEBE4EB),  // Clearer distinction, warmer
+    onSurfaceVariant = Color(0xFF0F0D12),  // Very dark for maximum contrast
+    outline = Color(0xFF201D24),  // Very dark for clear visibility
+    outlineVariant = Color(0xFF8A858E)  // Better definition
 )
 
 @Composable
@@ -273,6 +277,17 @@ fun JustLiftTheme(
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
     val extendedColors = if (darkTheme) DarkExtendedColors else LightExtendedColors
     val glassColors = if (darkTheme) DarkGlassColors else LightGlassColors
+
+    // Always use dark status bar icons regardless of theme
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            val controller = WindowCompat.getInsetsController(window, view)
+            controller.isAppearanceLightStatusBars = true
+            controller.isAppearanceLightNavigationBars = true
+        }
+    }
 
     CompositionLocalProvider(
         LocalExtendedColors provides extendedColors,
