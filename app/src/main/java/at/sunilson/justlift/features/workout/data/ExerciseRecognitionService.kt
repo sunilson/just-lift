@@ -204,10 +204,19 @@ class ExerciseRecognitionService(
      * Builds fingerprints for all exercises, averaging across difficulties.
      * This enables cross-difficulty matching since the same exercise has similar ROM
      * regardless of the difficulty setting.
+     *
+     * Filters out legacy fingerprints that have no position data (from before
+     * position tracking was added in earlier app versions).
      */
     private fun buildExerciseFingerprints(exercises: List<ExerciseEntity>): List<MovementFingerprint> {
         return exercises
             .map { it.normalized() }
+            // Filter out legacy fingerprints with no position data
+            .filter { entity ->
+                val leftRange = entity.maxPositionLeft - entity.minPositionLeft
+                val rightRange = entity.maxPositionRight - entity.minPositionRight
+                leftRange > 0.01 || rightRange > 0.01
+            }
             .groupBy { it.name }
             .map { (name, entities) ->
                 // Average position-based metrics across all difficulties for this exercise
