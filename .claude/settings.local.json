@@ -3,7 +3,10 @@
     "allow": [
       "WebFetch(domain:composeinternals.com)",
       "WebFetch(domain:kyant.gitbook.io)",
-      "WebFetch(domain:central.sonatype.com)"
+      "WebFetch(domain:central.sonatype.com)",
+      "WebFetch(domain:m3.material.io)",
+      "WebFetch(domain:support.google.com)",
+      "WebFetch(domain:supercharge.design)"
     ]
   }
 }

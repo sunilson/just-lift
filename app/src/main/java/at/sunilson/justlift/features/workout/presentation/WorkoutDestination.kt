@@ -18,18 +18,21 @@ fun WorkoutDestination(
     // Flows that can be paused when app is in background
     val state by viewModel.state.collectAsStateWithLifecycle()
     val currentUserId by viewModel.currentUserId.collectAsStateWithLifecycle()
+    val twoUserMode by viewModel.twoUserMode.collectAsStateWithLifecycle()
     val pagedHistory = viewModel.pagedHistory.collectAsLazyPagingItems()
 
 
     WorkoutScreen(
         state = state,
         currentUserId = currentUserId,
+        twoUserMode = twoUserMode,
         pagedHistory = pagedHistory,
         onDeviceSelected = viewModel::onDeviceSelected,
         onEccentricSliderValueChange = viewModel::onEccentricSliderValueChange,
         onRepetitionsSliderValueChange = viewModel::onRepetitionsSliderValueChange,
         onEchoDifficultyChange = viewModel::onEchoDifficultyChange,
         onUseTtsChange = viewModel::onUseTtsChange,
+        onTwoUserModeChange = viewModel::onTwoUserModeChange,
         onOpenDifficultySettings = viewModel::onOpenDifficultySettings,
         onDismissDifficultySettings = viewModel::onDismissDifficultySettings,
         onDifficultySheetSelectDifficulty = viewModel::onDifficultySheetSelectDifficulty,

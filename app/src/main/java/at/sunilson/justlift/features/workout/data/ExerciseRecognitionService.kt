@@ -3,20 +3,32 @@ package at.sunilson.justlift.features.workout.data
 import android.util.Log
 import at.sunilson.justlift.BuildConfig
 import at.sunilson.justlift.features.workout.data.database.ExerciseEntity
+import at.sunilson.justlift.features.workout.data.database.ExerciseSampleEntity
 import at.sunilson.justlift.features.workout.data.database.WorkoutHistoryDao
+import kotlin.math.exp
+import kotlin.math.ln
+import kotlin.math.sqrt
 import com.aallam.openai.api.chat.ChatCompletionRequest
 import com.aallam.openai.api.chat.ChatMessage
 import com.aallam.openai.api.chat.ChatRole
 import com.aallam.openai.api.model.ModelId
+import com.aallam.openai.api.http.Timeout
 import com.aallam.openai.client.OpenAI
+import com.aallam.openai.client.OpenAIConfig
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.seconds
 import org.koin.core.annotation.Single
 
 @Single
 class ExerciseRecognitionService(
     private val workoutHistoryDao: WorkoutHistoryDao
 ) {
-    private val openai = OpenAI(BuildConfig.OPENAI_API_KEY)
+    private val openai = OpenAI(
+        OpenAIConfig(
+            token = BuildConfig.OPENAI_API_KEY,
+            timeout = Timeout(socket = 60.seconds, request = 60.seconds)
+        )
+    )
 
     /**
      * Recognition result with additional context for debugging and future improvements.
@@ -58,6 +70,24 @@ class ExerciseRecognitionService(
         SINGLE, DUAL
     }
 
+    private data class MetricStdDevs(
+        val positionRangeLeft: Double = 0.0,
+        val positionRangeRight: Double = 0.0,
+        val avgPositionRangeLeft: Double = 0.0,
+        val avgPositionRangeRight: Double = 0.0,
+        val peakForcePositionUp: Double = 0.0,
+        val peakForcePositionDown: Double = 0.0,
+        val movementRatio: Double = 0.0,
+        val avgVelocityUp: Double = 0.0,
+        val avgVelocityDown: Double = 0.0
+    )
+
+    private data class EnrichedFingerprint(
+        val fingerprint: MovementFingerprint,
+        val sampleCount: Int,
+        val stdDevs: MetricStdDevs
+    )
+
     suspend fun recognizeExercise(userId: Int, workoutState: VitruvianDeviceManager.WorkoutState): String? {
         return recognizeExerciseWithReason(userId, workoutState).exerciseName
     }
@@ -69,31 +99,35 @@ class ExerciseRecognitionService(
             return RecognitionResult(null, RecognitionFailureReason.INVALID_WORKOUT_DATA)
         }
 
-        // Get ALL exercises for user (cross-difficulty matching)
-        val allExercises = workoutHistoryDao.getAllExercises(userId)
+        val allSamples = workoutHistoryDao.getAllExerciseSamples(userId)
 
-        if (allExercises.isEmpty()) {
-            Log.d("ExerciseRecognition", "recognizeExercise skipped: No existing exercises for user $userId")
+        if (allSamples.isEmpty()) {
+            Log.d("ExerciseRecognition", "recognizeExercise skipped: No exercise samples for user $userId")
             return RecognitionResult(null, RecognitionFailureReason.NO_EXERCISES_AVAILABLE)
         }
 
-        // Get unique exercise names (we match by name, not by difficulty)
-        val uniqueExerciseNames = allExercises.map { it.name }.distinct()
-        Log.d("ExerciseRecognition", "Starting recognition with ${uniqueExerciseNames.size} unique exercises: $uniqueExerciseNames")
+        val nowMillis = System.currentTimeMillis()
+        val enrichedFingerprints = buildFingerprintsFromSamples(allSamples, nowMillis)
 
-        // Build fingerprints
+        if (enrichedFingerprints.isEmpty()) {
+            Log.d("ExerciseRecognition", "recognizeExercise skipped: No valid fingerprints after filtering")
+            return RecognitionResult(null, RecognitionFailureReason.NO_EXERCISES_AVAILABLE)
+        }
+
+        val uniqueNames = enrichedFingerprints.map { it.fingerprint.name }
+        Log.d("ExerciseRecognition", "Starting recognition with ${uniqueNames.size} exercises: $uniqueNames")
+
         val workoutFingerprint = buildFingerprint("Current Workout", workoutState.normalized())
-        val exerciseFingerprints = buildExerciseFingerprints(allExercises)
 
-        // Filter fingerprints by cable type (must match exactly)
-        val matchingCableType = exerciseFingerprints.filter { it.cableType == workoutFingerprint.cableType }
+        // Filter by cable type
+        val matchingCableType = enrichedFingerprints.filter { it.fingerprint.cableType == workoutFingerprint.cableType }
 
         if (matchingCableType.isEmpty()) {
             Log.d("ExerciseRecognition", "No exercises with matching cable type (${workoutFingerprint.cableType})")
             return RecognitionResult(null, RecognitionFailureReason.NO_EXERCISES_AVAILABLE)
         }
 
-        val prompt = buildPrompt(workoutFingerprint, matchingCableType)
+        val prompt = buildEnrichedPrompt(workoutFingerprint, matchingCableType)
         Log.d("ExerciseRecognition", "Recognition Prompt:\n$prompt")
 
         var attempt = 1
@@ -103,7 +137,7 @@ class ExerciseRecognitionService(
         while (attempt <= maxAttempts) {
             try {
                 val chatCompletionRequest = ChatCompletionRequest(
-                    model = ModelId("gpt-4.1-mini"),
+                    model = ModelId("gpt-5-mini"),
                     messages = listOf(
                         ChatMessage(
                             role = ChatRole.User,
@@ -120,15 +154,13 @@ class ExerciseRecognitionService(
                     return RecognitionResult(null, RecognitionFailureReason.EMPTY_MODEL_RESPONSE, result)
                 }
 
-                // Verify the result is one of the existing exercise names
-                val match = matchingCableType.find { it.name.equals(result, ignoreCase = true) }?.name
+                val match = matchingCableType.find { it.fingerprint.name.equals(result, ignoreCase = true) }?.fingerprint?.name
 
                 if (match != null) {
                     Log.d("ExerciseRecognition", "Recognition successful: '$match'")
                     return RecognitionResult(match, null, result)
                 } else {
-                    // Model returned something, but it didn't match any known exercise
-                    Log.w("ExerciseRecognition", "Model response '$result' did not match any known exercise: ${matchingCableType.map { it.name }}")
+                    Log.w("ExerciseRecognition", "Model response '$result' did not match any known exercise: ${matchingCableType.map { it.fingerprint.name }}")
                     return RecognitionResult(null, RecognitionFailureReason.MODEL_RESPONSE_NOT_MATCHED, result)
                 }
             } catch (e: Exception) {
@@ -136,7 +168,7 @@ class ExerciseRecognitionService(
                 Log.e("ExerciseRecognition", "Error during exercise recognition (attempt $attempt/$maxAttempts): ${e.message}", e)
 
                 if (attempt < maxAttempts) {
-                    delay(2000L * attempt) // Exponential backoff
+                    delay(2000L * attempt)
                     attempt++
                 } else {
                     break
@@ -198,6 +230,170 @@ class ExerciseRecognitionService(
             avgVelocityUp = state.avgUpwardMaxVelocity,
             avgVelocityDown = state.avgDownwardMaxVelocity
         )
+    }
+
+    /**
+     * Builds enriched fingerprints from exercise samples using time-decayed weighted averaging.
+     * Groups by exerciseName (pools across all difficulties), takes most recent 30 samples per exercise,
+     * and computes per-metric standard deviations.
+     */
+    private fun buildFingerprintsFromSamples(
+        samples: List<ExerciseSampleEntity>,
+        nowMillis: Long
+    ): List<EnrichedFingerprint> {
+        val halfLifeMillis = 30.0 * 24 * 60 * 60 * 1000 // 30 days
+        val decayRate = ln(2.0) / halfLifeMillis
+
+        return samples
+            .map { it.normalized() }
+            .filter { sample ->
+                val leftRange = sample.maxPositionLeft - sample.minPositionLeft
+                val rightRange = sample.maxPositionRight - sample.minPositionRight
+                leftRange > 0.01 || rightRange > 0.01
+            }
+            .groupBy { it.exerciseName }
+            .mapNotNull { (name, exerciseSamples) ->
+                val recent = exerciseSamples
+                    .sortedByDescending { it.timestampMillis }
+                    .take(30)
+
+                if (recent.isEmpty()) return@mapNotNull null
+
+                // Compute time-decay weights
+                val weights = recent.map { sample ->
+                    val ageMillis = (nowMillis - sample.timestampMillis).toDouble().coerceAtLeast(0.0)
+                    exp(-decayRate * ageMillis)
+                }
+                val totalWeight = weights.sum()
+                if (totalWeight <= 0) return@mapNotNull null
+
+                // Extract per-sample metric values
+                val leftRanges = recent.map { it.maxPositionLeft - it.minPositionLeft }
+                val rightRanges = recent.map { it.maxPositionRight - it.minPositionRight }
+                val avgLeftRanges = recent.map { it.avgMaxPositionLeft - it.avgMinPositionLeft }
+                val avgRightRanges = recent.map { it.avgMaxPositionRight - it.avgMinPositionRight }
+                val peakUps = recent.map { it.avgUpwardPeakForcePosition }
+                val peakDowns = recent.map { it.avgDownwardPeakForcePosition }
+                val velUps = recent.map { it.avgUpwardMaxVelocity }
+                val velDowns = recent.map { it.avgDownwardMaxVelocity }
+                val movementRatios = recent.map { sample ->
+                    if (sample.avgDownwardRepDurationMillis > 0) {
+                        sample.avgUpwardRepDurationMillis / sample.avgDownwardRepDurationMillis
+                    } else 1.0
+                }
+
+                fun weightedAvg(values: List<Double>): Double =
+                    values.zip(weights).sumOf { (v, w) -> v * w } / totalWeight
+
+                fun weightedStdDev(values: List<Double>, mean: Double): Double {
+                    if (values.size < 2) return 0.0
+                    val variance = values.zip(weights).sumOf { (v, w) -> w * (v - mean) * (v - mean) } / totalWeight
+                    return sqrt(variance)
+                }
+
+                val avgLeftRange = weightedAvg(leftRanges)
+                val avgRightRange = weightedAvg(rightRanges)
+                val avgAvgLeftRange = weightedAvg(avgLeftRanges)
+                val avgAvgRightRange = weightedAvg(avgRightRanges)
+                val avgPeakUp = weightedAvg(peakUps)
+                val avgPeakDown = weightedAvg(peakDowns)
+                val avgVelUp = weightedAvg(velUps)
+                val avgVelDown = weightedAvg(velDowns)
+                val avgMovementRatio = weightedAvg(movementRatios)
+
+                val cableType = if (avgLeftRange > 0.05 && avgRightRange > 0.05) CableType.DUAL else CableType.SINGLE
+
+                val fingerprint = MovementFingerprint(
+                    name = name,
+                    cableType = cableType,
+                    positionRangeLeft = avgLeftRange,
+                    positionRangeRight = avgRightRange,
+                    avgPositionRangeLeft = avgAvgLeftRange,
+                    avgPositionRangeRight = avgAvgRightRange,
+                    peakForcePositionUp = avgPeakUp,
+                    peakForcePositionDown = avgPeakDown,
+                    movementRatio = avgMovementRatio,
+                    avgVelocityUp = avgVelUp,
+                    avgVelocityDown = avgVelDown
+                )
+
+                val stdDevs = MetricStdDevs(
+                    positionRangeLeft = weightedStdDev(leftRanges, avgLeftRange),
+                    positionRangeRight = weightedStdDev(rightRanges, avgRightRange),
+                    avgPositionRangeLeft = weightedStdDev(avgLeftRanges, avgAvgLeftRange),
+                    avgPositionRangeRight = weightedStdDev(avgRightRanges, avgAvgRightRange),
+                    peakForcePositionUp = weightedStdDev(peakUps, avgPeakUp),
+                    peakForcePositionDown = weightedStdDev(peakDowns, avgPeakDown),
+                    movementRatio = weightedStdDev(movementRatios, avgMovementRatio),
+                    avgVelocityUp = weightedStdDev(velUps, avgVelUp),
+                    avgVelocityDown = weightedStdDev(velDowns, avgVelDown)
+                )
+
+                EnrichedFingerprint(fingerprint, recent.size, stdDevs)
+            }
+    }
+
+    private fun buildEnrichedPrompt(workout: MovementFingerprint, candidates: List<EnrichedFingerprint>): String {
+        val workoutData = formatFingerprint(workout)
+        val exercisesData = candidates.joinToString("\n\n") { enriched ->
+            val fp = enriched.fingerprint
+            val sd = enriched.stdDevs
+            """
+            ${fp.name} (N=${enriched.sampleCount} samples):
+            - Cable Type: ${fp.cableType}
+            - Position Range (Left): ${"%.3f".format(fp.positionRangeLeft)} (StdDev: ${"%.3f".format(sd.positionRangeLeft)})
+            - Position Range (Right): ${"%.3f".format(fp.positionRangeRight)} (StdDev: ${"%.3f".format(sd.positionRangeRight)})
+            - Avg Position Range (Left): ${"%.3f".format(fp.avgPositionRangeLeft)} (StdDev: ${"%.3f".format(sd.avgPositionRangeLeft)})
+            - Avg Position Range (Right): ${"%.3f".format(fp.avgPositionRangeRight)} (StdDev: ${"%.3f".format(sd.avgPositionRangeRight)})
+            - Peak Force Position (Up): ${"%.3f".format(fp.peakForcePositionUp)} (StdDev: ${"%.3f".format(sd.peakForcePositionUp)})
+            - Peak Force Position (Down): ${"%.3f".format(fp.peakForcePositionDown)} (StdDev: ${"%.3f".format(sd.peakForcePositionDown)})
+            - Movement Ratio (Up/Down): ${"%.2f".format(fp.movementRatio)} (StdDev: ${"%.2f".format(sd.movementRatio)})
+            - Avg Velocity (Up): ${"%.3f".format(fp.avgVelocityUp)} (StdDev: ${"%.3f".format(sd.avgVelocityUp)})
+            - Avg Velocity (Down): ${"%.3f".format(fp.avgVelocityDown)} (StdDev: ${"%.3f".format(sd.avgVelocityDown)})
+            """.trimIndent()
+        }
+
+        return """
+            You are an exercise recognition system. Match the current workout to the most similar exercise based on movement pattern.
+
+            AVAILABLE EXERCISES:
+            $exercisesData
+
+            CURRENT WORKOUT:
+            $workoutData
+
+            MATCHING RULES (in priority order):
+
+            1. POSITION RANGE (ROM) - PRIMARY METRIC:
+               - Compare "Position Range" values (the total movement distance)
+               - Compare "Avg Position Range" values (the consistent ROM across reps)
+               - Same exercise will have similar ROM values (within ~0.1 tolerance)
+               - This is the MOST RELIABLE metric - it doesn't change with weight or difficulty
+
+            2. PEAK FORCE POSITION - SECONDARY METRIC:
+               - Where in the movement is the exercise hardest (0.0 = bottom, 1.0 = top)
+               - Different exercises have different force curves
+               - Should be within ~0.15 tolerance for a match
+
+            3. MOVEMENT RATIO - TERTIARY METRIC:
+               - Ratio of concentric (up) to eccentric (down) duration
+               - Helps distinguish tempo variations
+               - Less reliable but useful for tie-breaking
+
+            4. VELOCITY - QUATERNARY METRIC:
+               - Average max velocity during up/down phases
+               - Distinguishes explosive vs controlled movements
+
+            RELIABILITY HINTS:
+            - Each metric includes a StdDev (standard deviation). LOW StdDev = very reliable metric for this exercise, HIGH StdDev = less reliable, weigh it less.
+            - Exercises with more samples (higher N) have more reliable fingerprints overall.
+            - When two exercises are close, prefer the one where the matching metrics have lower StdDev.
+
+            IMPORTANT:
+            - All exercises shown have the same cable type (${workout.cableType}) as the workout
+            - Pick the BEST match even if not perfect
+            - Return ONLY the exercise name, nothing else
+        """.trimIndent()
     }
 
     /**

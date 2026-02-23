@@ -50,7 +50,7 @@ interface WorkoutHistoryDao {
     @Query("SELECT * FROM exercises WHERE userId = :userId")
     suspend fun getAllExercises(userId: Int): List<ExerciseEntity>
 
-    @Query("SELECT DISTINCT name FROM exercises")
+    @Query("SELECT DISTINCT name FROM exercises UNION SELECT DISTINCT exerciseName FROM exercise_samples")
     suspend fun getAllExerciseNames(): List<String>
 
     @Query("SELECT * FROM exercises WHERE userId = :userId AND name = :name AND difficulty = :difficulty LIMIT 1")
@@ -67,4 +67,19 @@ interface WorkoutHistoryDao {
 
     @Query("DELETE FROM workout_history")
     suspend fun deleteAll()
+
+    @Insert
+    suspend fun insertExerciseSample(sample: ExerciseSampleEntity)
+
+    @Query("SELECT * FROM exercise_samples WHERE userId = :userId ORDER BY timestampMillis DESC")
+    suspend fun getAllExerciseSamples(userId: Int): List<ExerciseSampleEntity>
+
+    @Query("SELECT DISTINCT exerciseName FROM exercise_samples")
+    suspend fun getAllSampleExerciseNames(): List<String>
+
+    @Query("UPDATE exercise_samples SET exerciseName = :newName WHERE exerciseName = :oldName")
+    suspend fun renameExerciseSamples(oldName: String, newName: String)
+
+    @Query("DELETE FROM exercise_samples WHERE exerciseName = :name")
+    suspend fun deleteExerciseSamples(name: String)
 }

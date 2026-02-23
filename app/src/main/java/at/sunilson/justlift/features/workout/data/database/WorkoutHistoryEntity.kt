@@ -81,3 +81,30 @@ data class ExerciseEntity(
     val avgDownwardMaxVelocity: Double = 0.0,
     val avgRestDurationMillis: Double = 0.0
 )
+
+@Entity(
+    tableName = "exercise_samples",
+    indices = [Index(value = ["userId", "exerciseName"])]
+)
+data class ExerciseSampleEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val userId: Int,
+    val exerciseName: String,
+    val difficulty: String = "WARMUP",
+    val timestampMillis: Long,
+    val minPositionLeft: Double = 0.0,
+    val maxPositionLeft: Double = 0.0,
+    val minPositionRight: Double = 0.0,
+    val maxPositionRight: Double = 0.0,
+    val avgMinPositionLeft: Double = 0.0,
+    val avgMaxPositionLeft: Double = 0.0,
+    val avgMinPositionRight: Double = 0.0,
+    val avgMaxPositionRight: Double = 0.0,
+    val avgUpwardRepDurationMillis: Double = 0.0,
+    val avgDownwardRepDurationMillis: Double = 0.0,
+    val avgUpwardPeakForcePosition: Double = 0.0,
+    val avgDownwardPeakForcePosition: Double = 0.0,
+    val avgUpwardMaxVelocity: Double = 0.0,
+    val avgDownwardMaxVelocity: Double = 0.0,
+    val avgRestDurationMillis: Double = 0.0
+)

@@ -5,11 +5,66 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [WorkoutHistoryEntity::class, ExerciseEntity::class], version = 10, exportSchema = false)
+@Database(entities = [WorkoutHistoryEntity::class, ExerciseEntity::class, ExerciseSampleEntity::class], version = 11, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun workoutHistoryDao(): WorkoutHistoryDao
 
     companion object {
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `exercise_samples` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `userId` INTEGER NOT NULL,
+                        `exerciseName` TEXT NOT NULL,
+                        `difficulty` TEXT NOT NULL DEFAULT 'WARMUP',
+                        `timestampMillis` INTEGER NOT NULL,
+                        `minPositionLeft` REAL NOT NULL DEFAULT 0.0,
+                        `maxPositionLeft` REAL NOT NULL DEFAULT 0.0,
+                        `minPositionRight` REAL NOT NULL DEFAULT 0.0,
+                        `maxPositionRight` REAL NOT NULL DEFAULT 0.0,
+                        `avgMinPositionLeft` REAL NOT NULL DEFAULT 0.0,
+                        `avgMaxPositionLeft` REAL NOT NULL DEFAULT 0.0,
+                        `avgMinPositionRight` REAL NOT NULL DEFAULT 0.0,
+                        `avgMaxPositionRight` REAL NOT NULL DEFAULT 0.0,
+                        `avgUpwardRepDurationMillis` REAL NOT NULL DEFAULT 0.0,
+                        `avgDownwardRepDurationMillis` REAL NOT NULL DEFAULT 0.0,
+                        `avgUpwardPeakForcePosition` REAL NOT NULL DEFAULT 0.0,
+                        `avgDownwardPeakForcePosition` REAL NOT NULL DEFAULT 0.0,
+                        `avgUpwardMaxVelocity` REAL NOT NULL DEFAULT 0.0,
+                        `avgDownwardMaxVelocity` REAL NOT NULL DEFAULT 0.0,
+                        `avgRestDurationMillis` REAL NOT NULL DEFAULT 0.0
+                    )
+                """.trimIndent())
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_exercise_samples_userId_exerciseName` ON `exercise_samples` (`userId`, `exerciseName`)")
+
+                // Seed exercise_samples from existing exercises table.
+                // Use a timestamp of 60 days ago so migrated data has moderate time-decay weight.
+                val sixtyDaysAgoMillis = System.currentTimeMillis() - (60L * 24 * 60 * 60 * 1000)
+                db.execSQL("""
+                    INSERT INTO exercise_samples (
+                        userId, exerciseName, difficulty, timestampMillis,
+                        minPositionLeft, maxPositionLeft, minPositionRight, maxPositionRight,
+                        avgMinPositionLeft, avgMaxPositionLeft, avgMinPositionRight, avgMaxPositionRight,
+                        avgUpwardRepDurationMillis, avgDownwardRepDurationMillis,
+                        avgUpwardPeakForcePosition, avgDownwardPeakForcePosition,
+                        avgUpwardMaxVelocity, avgDownwardMaxVelocity,
+                        avgRestDurationMillis
+                    )
+                    SELECT
+                        userId, name, difficulty, $sixtyDaysAgoMillis,
+                        minPositionLeft, maxPositionLeft, minPositionRight, maxPositionRight,
+                        avgMinPositionLeft, avgMaxPositionLeft, avgMinPositionRight, avgMaxPositionRight,
+                        avgUpwardRepDurationMillis, avgDownwardRepDurationMillis,
+                        avgUpwardPeakForcePosition, avgDownwardPeakForcePosition,
+                        avgUpwardMaxVelocity, avgDownwardMaxVelocity,
+                        avgRestDurationMillis
+                    FROM exercises
+                """.trimIndent())
+            }
+        }
+
         val MIGRATION_9_10 = object : Migration(9, 10) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE workout_history ADD COLUMN wasAutomaticallyRecognized INTEGER NOT NULL DEFAULT 0")

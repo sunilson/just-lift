@@ -24,7 +24,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        appSoundPlayer.maximizeVolume()
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
@@ -49,6 +48,8 @@ class MainActivity : ComponentActivity() {
         val splashScreen = installSplashScreen()
 
         super.onCreate(savedInstanceState)
+
+        appSoundPlayer.maximizeVolume()
 
         // Keep splash screen visible while app initializes
         splashScreen.setKeepOnScreenCondition { !isReady }

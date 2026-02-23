@@ -3,6 +3,7 @@ package at.sunilson.justlift.features.workout.presentation.history
 import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager
 import at.sunilson.justlift.features.workout.data.database.WorkoutHistoryEntity
 import at.sunilson.justlift.features.workout.data.database.ExerciseEntity
+import at.sunilson.justlift.features.workout.data.database.ExerciseSampleEntity
 import at.sunilson.justlift.features.workout.data.database.WorkoutHistoryWithStats
 import at.sunilson.justlift.features.workout.data.normalized
 import kotlin.math.roundToInt
@@ -141,6 +142,35 @@ fun WorkoutHistoryEntry.toEntity(userId: Int) = WorkoutHistoryEntity(
     wasAutomaticallyRecognized = wasAutomaticallyRecognized,
     isConfirmed = isConfirmed
 )
+
+fun VitruvianDeviceManager.WorkoutState.toExerciseSample(
+    userId: Int,
+    exerciseName: String,
+    timestampMillis: Long = System.currentTimeMillis()
+): ExerciseSampleEntity {
+    val normalized = this.normalized()
+    return ExerciseSampleEntity(
+        userId = userId,
+        exerciseName = exerciseName,
+        difficulty = normalized.difficulty.name,
+        timestampMillis = timestampMillis,
+        minPositionLeft = normalized.minPositionLeft,
+        maxPositionLeft = normalized.maxPositionLeft,
+        minPositionRight = normalized.minPositionRight,
+        maxPositionRight = normalized.maxPositionRight,
+        avgMinPositionLeft = normalized.avgMinPositionLeft,
+        avgMaxPositionLeft = normalized.avgMaxPositionLeft,
+        avgMinPositionRight = normalized.avgMinPositionRight,
+        avgMaxPositionRight = normalized.avgMaxPositionRight,
+        avgUpwardRepDurationMillis = normalized.avgUpwardRepDurationMillis,
+        avgDownwardRepDurationMillis = normalized.avgDownwardRepDurationMillis,
+        avgUpwardPeakForcePosition = normalized.avgUpwardPeakForcePosition,
+        avgDownwardPeakForcePosition = normalized.avgDownwardPeakForcePosition,
+        avgUpwardMaxVelocity = normalized.avgUpwardMaxVelocity,
+        avgDownwardMaxVelocity = normalized.avgDownwardMaxVelocity,
+        avgRestDurationMillis = normalized.avgRestDurationMillis
+    )
+}
 
 fun VitruvianDeviceManager.WorkoutState.toExerciseEntity(userId: Int, name: String): ExerciseEntity {
     val normalized = this.normalized()

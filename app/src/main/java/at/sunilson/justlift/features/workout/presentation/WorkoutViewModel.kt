@@ -22,6 +22,7 @@ import at.sunilson.justlift.features.workout.presentation.history.WorkoutHistory
 import at.sunilson.justlift.features.workout.presentation.history.toDomain
 import at.sunilson.justlift.features.workout.presentation.history.toEntity
 import at.sunilson.justlift.features.workout.presentation.history.toExerciseEntity
+import at.sunilson.justlift.features.workout.presentation.history.toExerciseSample
 import at.sunilson.justlift.features.workout.presentation.history.averageWith
 import at.sunilson.justlift.features.workout.presentation.history.estimatedUpwardOneRepMax
 import at.sunilson.justlift.features.workout.presentation.history.estimatedDownwardOneRepMax
@@ -75,6 +76,7 @@ class WorkoutViewModel(
     private val isForeground = MutableStateFlow(false)
 
     val currentUserId = userRepository.currentUserId.stateIn(viewModelScope, SharingStarted.Eagerly, 1)
+    val twoUserMode = userRepository.twoUserMode.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     val pagedHistory = currentUserId.flatMapLatest { userId ->
         Pager(PagingConfig(pageSize = 20)) {
@@ -416,14 +418,23 @@ class WorkoutViewModel(
                         // Save to database when a workout just finished
                         if (prev != null && workoutState == null) {
                             if (prev.difficulty != VitruvianDeviceManager.EchoDifficulty.WARMUP) {
+                                // Capture the current user ID before switching
+                                val setUserId = currentUserId.value
+
+                                // Auto-switch user immediately after set ends
+                                if (twoUserMode.value) {
+                                    val nextUser = if (setUserId == 1) 2 else 1
+                                    userRepository.switchToUser(nextUser)
+                                    Toast.makeText(context, "Switched to User $nextUser", Toast.LENGTH_SHORT).show()
+                                }
+
                                 viewModelScope.launch {
-                                    val userId = currentUserId.value
                                     Log.d(
                                         "ExerciseRecognition",
-                                        "Workout finished. Starting recognition for user $userId..."
+                                        "Workout finished. Starting recognition for user $setUserId..."
                                     )
                                     val guessedName = if (isForeground.value) {
-                                        exerciseRecognitionService.recognizeExercise(userId, prev)
+                                        exerciseRecognitionService.recognizeExercise(setUserId, prev)
                                     } else {
                                         Log.d(
                                             "ExerciseRecognition",
@@ -438,7 +449,7 @@ class WorkoutViewModel(
                                         exerciseName = guessedName,
                                         wasAutomaticallyRecognized = guessedName != null
                                     )
-                                    val id = workoutHistoryDao.insert(entry.toEntity(userId))
+                                    val id = workoutHistoryDao.insert(entry.toEntity(setUserId))
                                     val finalEntry = entry.copy(id = id)
                                     _state.update {
                                         it.copy(
@@ -861,6 +872,12 @@ class WorkoutViewModel(
         }
     }
 
+    fun onTwoUserModeChange(enabled: Boolean) {
+        viewModelScope.launch {
+            userRepository.setTwoUserMode(enabled)
+        }
+    }
+
     fun onEditExerciseName(entry: WorkoutHistoryEntry) {
         viewModelScope.launch {
             val exercises = workoutHistoryDao.getAllExerciseNames()
@@ -927,14 +944,10 @@ class WorkoutViewModel(
             return
         }
 
-        // Save as exercise fingerprint (average with existing if present)
-        val existing = workoutHistoryDao.getExercise(userId, name, workoutState.difficulty.name)
-        val exerciseEntity = if (existing != null) {
-            existing.averageWith(workoutState)
-        } else {
-            workoutState.toExerciseEntity(userId, name)
-        }
-        workoutHistoryDao.insertExercise(exerciseEntity)
+        // Insert a new sample row — each confirmation/correction is one data point
+        val sample = workoutState.toExerciseSample(userId, name)
+        workoutHistoryDao.insertExerciseSample(sample)
+        Log.d("ExerciseRecognition", "Inserted exercise sample for '$name' (user $userId)")
     }
 
     fun onDismissExerciseSelection() {
@@ -955,6 +968,7 @@ class WorkoutViewModel(
     fun onRenameExercise(oldName: String, newName: String) {
         viewModelScope.launch {
             workoutHistoryDao.renameExercise(oldName, newName)
+            workoutHistoryDao.renameExerciseSamples(oldName, newName)
             workoutHistoryDao.renameExerciseInHistory(oldName, newName)
             // Refresh names
             val names = workoutHistoryDao.getAllExerciseNames()
@@ -975,6 +989,7 @@ class WorkoutViewModel(
     fun onDeleteExercise(name: String, alternativeName: String?) {
         viewModelScope.launch {
             workoutHistoryDao.deleteExercise(name)
+            workoutHistoryDao.deleteExerciseSamples(name)
             workoutHistoryDao.renameExerciseInHistory(name, alternativeName)
             // Refresh names
             val names = workoutHistoryDao.getAllExerciseNames()

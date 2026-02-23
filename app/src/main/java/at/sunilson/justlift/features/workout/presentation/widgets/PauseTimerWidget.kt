@@ -1,20 +1,11 @@
 package at.sunilson.justlift.features.workout.presentation.widgets
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Timer
@@ -30,11 +21,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import at.sunilson.justlift.shared.presentation.components.GlassSurface
 import at.sunilson.justlift.shared.presentation.theme.JustLiftTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -59,75 +47,26 @@ fun PauseTimerWidget(
     val elapsed = (now - pauseStartTimestamp).coerceAtLeast(0L)
     val timeString = elapsed.toDuration(DurationUnit.MILLISECONDS).formatHhMmSs()
 
-    // Pulsing animation for the timer icon
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.15f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulse_scale"
-    )
-
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.6f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "glow_alpha"
-    )
-
-    GlassSurface(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp)
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(JustLiftTheme.extendedColors.warning.copy(alpha = 0.12f))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            // Animated timer icon with glow
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .scale(pulseScale),
-                contentAlignment = Alignment.Center
-            ) {
-                // Glow effect
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    JustLiftTheme.extendedColors.warning.copy(alpha = glowAlpha),
-                                    JustLiftTheme.extendedColors.warning.copy(alpha = 0f)
-                                )
-                            )
-                        )
-                )
-                Icon(
-                    imageVector = Icons.Default.Timer,
-                    contentDescription = "Rest timer",
-                    tint = JustLiftTheme.extendedColors.warning,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Text(
-                text = "Rest: $timeString",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = JustLiftTheme.extendedColors.warning
-            )
-        }
+        Icon(
+            imageVector = Icons.Default.Timer,
+            contentDescription = "Rest timer",
+            tint = JustLiftTheme.extendedColors.warning,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "Rest: $timeString",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = JustLiftTheme.extendedColors.warning
+        )
     }
 }
 

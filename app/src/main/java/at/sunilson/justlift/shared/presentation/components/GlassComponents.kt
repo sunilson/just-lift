@@ -13,11 +13,19 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -32,6 +40,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import at.sunilson.justlift.shared.presentation.theme.JustLiftTheme
@@ -450,5 +459,129 @@ fun Modifier.floatingAnimation(
 
     return this.graphicsLayer {
         translationY = offsetY
+    }
+}
+
+/**
+ * A reusable gradient icon container that replaces nested Box patterns.
+ * Use this instead of Box + clip + background + Icon patterns.
+ */
+@Composable
+fun GradientIconContainer(
+    modifier: Modifier = Modifier,
+    size: Dp = 40.dp,
+    shape: Shape = CircleShape,
+    colors: List<Color>? = null,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val defaultColors = listOf(
+        MaterialTheme.colorScheme.primaryContainer,
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+    )
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(shape)
+            .background(
+                Brush.linearGradient(colors ?: defaultColors)
+            ),
+        contentAlignment = Alignment.Center,
+        content = content
+    )
+}
+
+/**
+ * A stylized value display chip with gradient background.
+ * Use this for displaying numeric values, badges, etc.
+ */
+@Composable
+fun ValueChip(
+    modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(10.dp),
+    containerColor: Color = MaterialTheme.colorScheme.primaryContainer,
+    content: @Composable BoxScope.() -> Unit
+) {
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .background(
+                Brush.horizontalGradient(
+                    colors = listOf(
+                        containerColor,
+                        containerColor.copy(alpha = 0.7f)
+                    )
+                )
+            )
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center,
+        content = content
+    )
+}
+
+/**
+ * A subtle gradient divider for separating content sections.
+ */
+@Composable
+fun GlassDivider(
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.outline
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(
+                Brush.horizontalGradient(
+                    colors = listOf(
+                        color.copy(alpha = 0f),
+                        color.copy(alpha = 0.3f),
+                        color.copy(alpha = 0f)
+                    )
+                )
+            )
+    )
+}
+
+/**
+ * A compact glass chip for status indicators, tags, etc.
+ */
+@Composable
+fun GlassChip(
+    modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.secondaryContainer,
+    shape: Shape = RoundedCornerShape(8.dp),
+    content: @Composable RowScope.() -> Unit
+) {
+    Row(
+        modifier = modifier
+            .clip(shape)
+            .background(containerColor)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+        content = content
+    )
+}
+
+/**
+ * An icon button with subtle glass background.
+ */
+@Composable
+fun GlassIconButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    size: Dp = 36.dp,
+    containerColor: Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+    content: @Composable () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(containerColor)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        content()
     }
 }

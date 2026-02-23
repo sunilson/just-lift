@@ -6,99 +6,109 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /**
- * Premium Typography System for Just Lift
+ * Typography System for Just Lift
  *
- * Design principles:
- * - Bold headlines for impact and energy
- * - Clean, readable body text
- * - Tight letter spacing for modern feel
- * - Generous line heights for comfort
+ * Based on Material3 defaults with slight adjustments for workout readability.
+ * Maintains good contrast and legibility without being oversized.
  */
-private val defaultTypography = Typography()
-
 val Typography = Typography(
-    // Display styles - Hero numbers, big impact moments
-    displayLarge = defaultTypography.displayLarge.copy(
-        fontWeight = FontWeight.Black,
-        letterSpacing = (-2).sp,
+    // Display styles - for hero numbers like rep counts
+    displayLarge = TextStyle(
+        fontSize = 57.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = (-0.25).sp,
         lineHeight = 64.sp
     ),
-    displayMedium = defaultTypography.displayMedium.copy(
+    displayMedium = TextStyle(
+        fontSize = 45.sp,
         fontWeight = FontWeight.Bold,
-        letterSpacing = (-1).sp,
+        letterSpacing = 0.sp,
         lineHeight = 52.sp
     ),
-    displaySmall = defaultTypography.displaySmall.copy(
+    displaySmall = TextStyle(
+        fontSize = 36.sp,
         fontWeight = FontWeight.Bold,
-        letterSpacing = (-0.5).sp,
+        letterSpacing = 0.sp,
         lineHeight = 44.sp
     ),
 
-    // Headline styles - Section titles, workout names
-    headlineLarge = defaultTypography.headlineLarge.copy(
-        fontWeight = FontWeight.Bold,
-        letterSpacing = (-0.5).sp,
+    // Headline styles - section titles
+    headlineLarge = TextStyle(
+        fontSize = 32.sp,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 0.sp,
         lineHeight = 40.sp
     ),
-    headlineMedium = defaultTypography.headlineMedium.copy(
-        fontWeight = FontWeight.Bold,
-        letterSpacing = (-0.25).sp,
+    headlineMedium = TextStyle(
+        fontSize = 28.sp,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 0.sp,
         lineHeight = 36.sp
     ),
-    headlineSmall = defaultTypography.headlineSmall.copy(
+    headlineSmall = TextStyle(
+        fontSize = 24.sp,
         fontWeight = FontWeight.SemiBold,
         letterSpacing = 0.sp,
         lineHeight = 32.sp
     ),
 
-    // Title styles - Card titles, list items, labels
-    titleLarge = defaultTypography.titleLarge.copy(
-        fontWeight = FontWeight.SemiBold,
+    // Title styles
+    titleLarge = TextStyle(
+        fontSize = 22.sp,
+        fontWeight = FontWeight.Medium,
         letterSpacing = 0.sp,
         lineHeight = 28.sp
     ),
-    titleMedium = defaultTypography.titleMedium.copy(
-        fontWeight = FontWeight.SemiBold,
+    titleMedium = TextStyle(
+        fontSize = 16.sp,
+        fontWeight = FontWeight.Medium,
         letterSpacing = 0.15.sp,
         lineHeight = 24.sp
     ),
-    titleSmall = defaultTypography.titleSmall.copy(
+    titleSmall = TextStyle(
+        fontSize = 14.sp,
         fontWeight = FontWeight.Medium,
         letterSpacing = 0.1.sp,
         lineHeight = 20.sp
     ),
 
-    // Body styles - Content text, descriptions
-    bodyLarge = defaultTypography.bodyLarge.copy(
+    // Body styles
+    bodyLarge = TextStyle(
+        fontSize = 16.sp,
         fontWeight = FontWeight.Normal,
-        letterSpacing = 0.25.sp,
+        letterSpacing = 0.5.sp,
         lineHeight = 24.sp
     ),
-    bodyMedium = defaultTypography.bodyMedium.copy(
+    bodyMedium = TextStyle(
+        fontSize = 14.sp,
         fontWeight = FontWeight.Normal,
-        letterSpacing = 0.15.sp,
+        letterSpacing = 0.25.sp,
         lineHeight = 20.sp
     ),
-    bodySmall = defaultTypography.bodySmall.copy(
+    bodySmall = TextStyle(
+        fontSize = 12.sp,
         fontWeight = FontWeight.Normal,
         letterSpacing = 0.4.sp,
         lineHeight = 16.sp
     ),
 
-    // Label styles - Buttons, chips, metadata, UI elements
-    labelLarge = defaultTypography.labelLarge.copy(
-        fontWeight = FontWeight.SemiBold,
+    // Label styles
+    labelLarge = TextStyle(
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Medium,
         letterSpacing = 0.1.sp,
         lineHeight = 20.sp
     ),
-    labelMedium = defaultTypography.labelMedium.copy(
+    labelMedium = TextStyle(
+        fontSize = 12.sp,
         fontWeight = FontWeight.Medium,
         letterSpacing = 0.5.sp,
         lineHeight = 16.sp
     ),
-    labelSmall = defaultTypography.labelSmall.copy(
+    labelSmall = TextStyle(
+        fontSize = 11.sp,
         fontWeight = FontWeight.Medium,
         letterSpacing = 0.5.sp,
-        lineHeight = 14.sp
+        lineHeight = 16.sp
     )
 )
