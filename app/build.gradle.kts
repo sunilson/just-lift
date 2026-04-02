@@ -1,29 +1,9 @@
-import java.util.Properties
-
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.screenshot)
-    kotlin("plugin.serialization") version "2.2.0"
-}
-
-fun Project.secret(name: String): String? {
-    val localProperties = Properties()
-    val localPropertiesFile = rootProject.file("local.properties")
-    if (localPropertiesFile.exists()) {
-        localPropertiesFile.inputStream().use { 
-            localProperties.load(it)
-        }
-    }
-
-    val fromLocal = localProperties.getProperty(name)
-    if (fromLocal != null) return fromLocal
-
-    return providers.environmentVariable(name)
-        .orElse(providers.gradleProperty(name))
-        .orNull
 }
 
 android {
@@ -55,24 +35,17 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
     buildFeatures {
         buildConfig = true
         compose = true
     }
-
-    defaultConfig {
-        buildConfigField("String", "OPENAI_API_KEY", "\"${secret("OPENAI_API_KEY") ?: ""}\"")
-    }
-
 
     @Suppress("UnstableApiUsage")
     experimentalProperties["android.experimental.enableScreenshotTest"] = true
 }
 
 dependencies {
+    implementation(project(":shared"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.process)
@@ -85,8 +58,7 @@ dependencies {
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
     implementation(libs.androidx.compose.ui.navigation)
     implementation(libs.androidx.compose.material.icons.extended)
-    // Use direct dependency to avoid catalog resolution issues in some environments
-    implementation("androidx.datastore:datastore-preferences:1.1.1")
+    implementation(libs.androidx.datastore.preferences)
     implementation(libs.nordicsemi.ble)
     implementation(libs.kable.core)
     implementation(libs.kable.default.permissions)
@@ -104,8 +76,6 @@ dependencies {
     implementation(libs.room.paging)
     implementation(libs.paging.runtime)
     implementation(libs.paging.compose)
-    implementation(libs.openai.client)
-    implementation(libs.ktor.client.okhttp)
     implementation(libs.cloudy)
     implementation(libs.androidx.core.splashscreen)
     ksp(libs.room.compiler)

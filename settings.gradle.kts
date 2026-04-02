@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Just Lift"
 include(":app")
+include(":shared")
