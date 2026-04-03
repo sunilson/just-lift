@@ -18,6 +18,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.isActive
@@ -292,14 +294,23 @@ class VitruvianDeviceManagerImpl(
         sessions.getOrPut(device.identifier.toString()) { WorkoutSession() }
 
     override fun getScannedDevicesFlow(): Flow<List<Peripheral>> {
-        return Scanner().advertisements
-            .mapNotNull { adv: Advertisement ->
-                if (adv.name?.startsWith("Vee") == true) {
-                    Peripheral(adv)
-                } else null
-            }
-            .runningFold(mapOf<String, Peripheral>()) { acc, peripheral -> acc + (peripheral.identifier.toString() to peripheral) }
-            .mapNotNull { it.values.toList() }
+        return try {
+            Scanner().advertisements
+                .mapNotNull { adv: Advertisement ->
+                    if (adv.name?.startsWith("Vee") == true) {
+                        Peripheral(adv)
+                    } else null
+                }
+                .runningFold(mapOf<String, Peripheral>()) { acc, peripheral -> acc + (peripheral.identifier.toString() to peripheral) }
+                .mapNotNull { it.values.toList() }
+                .catch { e ->
+                    platformLog("VitruvianDeviceManager", "BLE scanning error: ${e.message}")
+                    emit(emptyList())
+                }
+        } catch (e: Exception) {
+            platformLog("VitruvianDeviceManager", "BLE not available: ${e.message}")
+            emptyFlow()
+        }
     }
 
     override fun getWorkoutStateFlow(device: Peripheral): Flow<VitruvianDeviceManager.WorkoutState?> {
