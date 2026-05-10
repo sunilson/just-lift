@@ -627,8 +627,10 @@ class VitruvianDeviceManagerImpl(
         Log.d("ExerciseRecognition", "startFixedWeightWorkout: userId=$userId, weight=${weightPerCableKg}kg, eccentric=$eccentricPercentage, maxReps=$maxReps")
         val session = sessionFor(device)
 
-        val frame = buildOldSchoolStartCommand(weightPerCableKg)
-        prepareAndSendFrame(device, session, frame)
+        val activationFrame = buildOldSchoolActivationFrame(weightPerCableKg)
+        prepareAndSendFrame(device, session, activationFrame)
+        delay(100)
+        writeWithResponse(device, RX_CHARACTERISTIC, buildStartCommand())
 
         // Start local session tracking -- identical to Echo mode
         session.timeJob?.cancel()
@@ -687,7 +689,7 @@ class VitruvianDeviceManagerImpl(
         session.prevPosLeft = 0.0
         session.prevPosRight = 0.0
         session.state.value = VitruvianDeviceManager.WorkoutState(
-            calibratingRepsCompleted = session.calibrationRepsCompleted,
+            calibratingRepsCompleted = 0,
             maxReps = maxReps,
             upwardRepetitionsCompleted = 0,
             downwardRepetitionsCompleted = 0,
@@ -927,16 +929,80 @@ class VitruvianDeviceManagerImpl(
     }
 
     /**
-     * Build a 4-byte Old School (fixed weight) start command.
-     * Format: [0x02, 0x00 (OldSchool mode), weightLow, weightHigh]
-     * Weight is encoded as (kg * 100) in little-endian u16.
+     * Build a 96-byte OldSchool activation frame (command 0x04) matching the
+     * reference Vitruvian protocol. This frame configures calibration, rep detection
+     * thresholds, velocity ramp curves, and force parameters.
      */
-    private fun buildOldSchoolStartCommand(weightPerCableKg: Float): ByteArray {
-        val weightEncoded = (weightPerCableKg * 100).toInt().coerceIn(0, 0xFFFF)
-        val weightLow = (weightEncoded and 0xFF).toByte()
-        val weightHigh = ((weightEncoded shr 8) and 0xFF).toByte()
-        return byteArrayOf(0x02, 0x00, weightLow, weightHigh)
+    private fun buildOldSchoolActivationFrame(weightPerCableKg: Float): ByteArray {
+        val buf = ByteBuffer.allocate(96).order(ByteOrder.LITTLE_ENDIAN)
+
+        // 0x00: Command ID — ACTIVATION
+        buf.putInt(0x04)
+
+        // 0x04: Reps — 0xFF for unlimited (Just Lift / AMRAP)
+        buf.put(0xFF.toByte())
+
+        // 0x05-0x07: Rep detection constants
+        buf.put(0x03)
+        buf.put(0x03)
+        buf.put(0x00)
+
+        // 0x08-0x0F: Detection thresholds (2x float32 = 5.0f)
+        buf.putFloat(5.0f)
+        buf.putFloat(5.0f)
+
+        // 0x10-0x13: Zeroed
+        buf.putInt(0)
+
+        // 0x14-0x1B: Top rep detection thresholds
+        buf.putShort(250.toShort())  // outer mmPerM
+        buf.putShort(250.toShort())  // inner mmPerM
+        buf.putShort(200.toShort())
+        buf.putShort(30.toShort())
+
+        // 0x1C-0x1F: Detection threshold
+        buf.putFloat(5.0f)
+
+        // 0x20-0x23: Zeroed
+        buf.putInt(0)
+
+        // 0x24-0x2B: Bottom rep detection thresholds
+        buf.putShort(250.toShort())
+        buf.putShort(250.toShort())
+        buf.putShort(200.toShort())
+        buf.putShort(30.toShort())
+
+        // 0x2C-0x2F: Additional thresholds
+        buf.putShort(250.toShort())
+        buf.putShort(80.toShort())
+
+        // 0x30-0x3F: Concentric phase (OldSchool velocity ramp profile)
+        buf.putShort(0.toShort())      // ramp start
+        buf.putShort(20.toShort())     // ramp end
+        buf.putFloat(3.0f)             // smoothing
+        buf.putShort(75.toShort())     // peak velocity start
+        buf.putShort(600.toShort())    // peak velocity end
+        buf.putFloat(50.0f)            // peak smoothing
+
+        // 0x40-0x4F: Eccentric phase (OldSchool velocity ramp profile)
+        buf.putShort((-1300).toShort())  // ramp start
+        buf.putShort((-1200).toShort())  // ramp end
+        buf.putFloat(100.0f)             // smoothing
+        buf.putShort((-260).toShort())   // tail velocity start
+        buf.putShort((-110).toShort())   // tail velocity end
+        buf.putFloat(0.0f)               // tail smoothing
+
+        // 0x50-0x5F: Force config
+        buf.putFloat(0.0f)                        // forceMin
+        buf.putFloat(weightPerCableKg + 10.0f)    // forceMax (headroom)
+        buf.putFloat(weightPerCableKg)             // targetWeight
+        buf.putFloat(0.0f)                         // progression
+
+        return buf.array()
     }
+
+    /** 4-byte START command sent after the activation frame. */
+    private fun buildStartCommand(): ByteArray = byteArrayOf(0x03, 0x00, 0x00, 0x00)
 
     // Parse monitor data bytes to left/right loads in kg
     private fun parseMonitorLoads(data: ByteArray): Pair<Double, Double> {

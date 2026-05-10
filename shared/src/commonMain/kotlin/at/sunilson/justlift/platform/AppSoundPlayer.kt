@@ -9,6 +9,7 @@ expect class AppSoundPlayer {
     fun stopAutoStartCountDown()
     fun playDone(useTts: Boolean = false)
     fun playRep(repNumber: Int, isWarmup: Boolean, useTts: Boolean = false)
+    fun playUserSwitch(nextUserId: Int, useTts: Boolean = false)
     fun speak(text: String)
     fun maximizeVolume()
 }

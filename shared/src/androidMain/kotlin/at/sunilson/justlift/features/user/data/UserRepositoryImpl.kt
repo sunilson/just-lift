@@ -15,6 +15,7 @@ class UserRepositoryImpl(private val context: Context) : UserRepository {
     private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "user_settings")
     private val KEY_CURRENT_USER_ID = intPreferencesKey("current_user_id")
     private val KEY_TWO_USER_MODE = androidx.datastore.preferences.core.booleanPreferencesKey("two_user_mode")
+    private val KEY_SETS_PER_USER = intPreferencesKey("sets_per_user")
 
     override val currentUserId: Flow<Int> = context.dataStore.data.map { preferences ->
         preferences[KEY_CURRENT_USER_ID] ?: 1
@@ -22,6 +23,10 @@ class UserRepositoryImpl(private val context: Context) : UserRepository {
 
     override val twoUserMode: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[KEY_TWO_USER_MODE] ?: false
+    }
+
+    override val setsPerUser: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[KEY_SETS_PER_USER] ?: 1
     }
 
     override suspend fun switchToUser(userId: Int) {
@@ -33,6 +38,12 @@ class UserRepositoryImpl(private val context: Context) : UserRepository {
     override suspend fun setTwoUserMode(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[KEY_TWO_USER_MODE] = enabled
+        }
+    }
+
+    override suspend fun setSetsPerUser(value: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_SETS_PER_USER] = value.coerceIn(1, 10)
         }
     }
 }

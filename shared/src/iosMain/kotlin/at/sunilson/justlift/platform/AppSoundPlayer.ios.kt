@@ -40,6 +40,10 @@ actual class AppSoundPlayer {
         }
     }
 
+    actual fun playUserSwitch(nextUserId: Int, useTts: Boolean) {
+        speak("Switched to user $nextUserId")
+    }
+
     actual fun speak(text: String) {
         stopSpeaking()
         val utterance = AVSpeechUtterance.speechUtteranceWithString(text)

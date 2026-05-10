@@ -383,8 +383,10 @@ class VitruvianDeviceManagerImpl(
         platformLog("VitruvianDeviceManager", "startFixedWeightWorkout: userId=$userId, weight=${weightPerCableKg}kg")
         val session = sessionFor(device)
 
-        val frame = buildOldSchoolStartCommand(weightPerCableKg)
-        prepareAndSendFrame(device, session, frame)
+        val activationFrame = buildOldSchoolActivationFrame(weightPerCableKg)
+        prepareAndSendFrame(device, session, activationFrame)
+        delay(100)
+        writeWithResponse(device, RX_CHARACTERISTIC, buildStartCommand())
 
         resetSession(session, maxReps, stopAtLastTopRep = false, VitruvianDeviceManager.EchoDifficulty.WARMUP)
         session.state.value = VitruvianDeviceManager.WorkoutState(
@@ -674,12 +676,75 @@ class VitruvianDeviceManagerImpl(
         return buf
     }
 
-    private fun buildOldSchoolStartCommand(weightPerCableKg: Float): ByteArray {
-        val weightEncoded = (weightPerCableKg * 100).toInt().coerceIn(0, 0xFFFF)
-        val weightLow = (weightEncoded and 0xFF).toByte()
-        val weightHigh = ((weightEncoded shr 8) and 0xFF).toByte()
-        return byteArrayOf(0x02, 0x00, weightLow, weightHigh)
+    /**
+     * Build a 96-byte OldSchool activation frame (command 0x04) matching the
+     * reference Vitruvian protocol.
+     */
+    private fun buildOldSchoolActivationFrame(weightPerCableKg: Float): ByteArray {
+        val buf = ByteArray(96)
+
+        // 0x00: Command ID — ACTIVATION
+        writeInt32LE(buf, 0, 0x04)
+
+        // 0x04: Reps — 0xFF for unlimited
+        buf[4] = 0xFF.toByte()
+
+        // 0x05-0x07: Rep detection constants
+        buf[5] = 0x03; buf[6] = 0x03; buf[7] = 0x00
+
+        // 0x08-0x0F: Detection thresholds
+        writeFloat32LE(buf, 8, 5.0f)
+        writeFloat32LE(buf, 12, 5.0f)
+
+        // 0x10-0x13: Zeroed (already zero)
+
+        // 0x14-0x1B: Top rep detection thresholds
+        writeInt16LE(buf, 0x14, 250)
+        writeInt16LE(buf, 0x16, 250)
+        writeInt16LE(buf, 0x18, 200)
+        writeInt16LE(buf, 0x1A, 30)
+
+        // 0x1C-0x1F: Detection threshold
+        writeFloat32LE(buf, 0x1C, 5.0f)
+
+        // 0x20-0x23: Zeroed (already zero)
+
+        // 0x24-0x2B: Bottom rep detection thresholds
+        writeInt16LE(buf, 0x24, 250)
+        writeInt16LE(buf, 0x26, 250)
+        writeInt16LE(buf, 0x28, 200)
+        writeInt16LE(buf, 0x2A, 30)
+
+        // 0x2C-0x2F: Additional thresholds
+        writeInt16LE(buf, 0x2C, 250)
+        writeInt16LE(buf, 0x2E, 80)
+
+        // 0x30-0x3F: Concentric phase (OldSchool velocity ramp profile)
+        writeInt16LE(buf, 0x30, 0)      // ramp start
+        writeInt16LE(buf, 0x32, 20)     // ramp end
+        writeFloat32LE(buf, 0x34, 3.0f) // smoothing
+        writeInt16LE(buf, 0x38, 75)     // peak velocity start
+        writeInt16LE(buf, 0x3A, 600)    // peak velocity end
+        writeFloat32LE(buf, 0x3C, 50.0f) // peak smoothing
+
+        // 0x40-0x4F: Eccentric phase (OldSchool velocity ramp profile)
+        writeInt16LE(buf, 0x40, -1300)  // ramp start
+        writeInt16LE(buf, 0x42, -1200)  // ramp end
+        writeFloat32LE(buf, 0x44, 100.0f)           // smoothing
+        writeInt16LE(buf, 0x48, -260)    // tail velocity start
+        writeInt16LE(buf, 0x4A, -110)    // tail velocity end
+        writeFloat32LE(buf, 0x4C, 0.0f)             // tail smoothing
+
+        // 0x50-0x5F: Force config
+        writeFloat32LE(buf, 0x50, 0.0f)                     // forceMin
+        writeFloat32LE(buf, 0x54, weightPerCableKg + 10.0f) // forceMax
+        writeFloat32LE(buf, 0x58, weightPerCableKg)          // targetWeight
+        writeFloat32LE(buf, 0x5C, 0.0f)                      // progression
+
+        return buf
     }
+
+    private fun buildStartCommand(): ByteArray = byteArrayOf(0x03, 0x00, 0x00, 0x00)
 
     private fun parseMonitorLoads(data: ByteArray): Pair<Double, Double> {
         if (data.size < 16) return 0.0 to 0.0

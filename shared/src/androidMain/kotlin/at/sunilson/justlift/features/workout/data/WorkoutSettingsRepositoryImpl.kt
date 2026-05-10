@@ -37,8 +37,6 @@ class WorkoutSettingsRepositoryImpl(
                     runCatching { VitruvianDeviceManager.EchoDifficulty.valueOf(name) }
                         .getOrDefault(WorkoutSettings().echoDifficulty)
                 } ?: WorkoutSettings().echoDifficulty,
-                repetitions = prefs[intPreferencesKey(userKey(KEY_REPS_NAME, userId))]
-                    ?: WorkoutSettings().repetitions,
                 eccentricPercentage = prefs[floatPreferencesKey(userKey(KEY_ECCENTRIC_PERCENT_NAME, userId))]
                     ?: WorkoutSettings().eccentricPercentage,
                 useTts = prefs[booleanPreferencesKey(userKey(KEY_USE_TTS, userId))]
@@ -55,7 +53,6 @@ class WorkoutSettingsRepositoryImpl(
     override suspend fun save(userId: Int, settings: WorkoutSettings) {
         dataStore.edit { prefs ->
             prefs[stringPreferencesKey(userKey(KEY_DIFFICULTY_NAME, userId))] = settings.echoDifficulty.name
-            prefs[intPreferencesKey(userKey(KEY_REPS_NAME, userId))] = settings.repetitions
             prefs[floatPreferencesKey(userKey(KEY_ECCENTRIC_PERCENT_NAME, userId))] = settings.eccentricPercentage
             prefs[booleanPreferencesKey(userKey(KEY_USE_TTS, userId))] = settings.useTts
             prefs[booleanPreferencesKey(userKey(KEY_FIXED_WEIGHT_MODE, userId))] = settings.fixedWeightMode
@@ -188,6 +185,7 @@ class WorkoutSettingsRepositoryImpl(
             VitruvianDeviceManager.EchoDifficulty.HARD -> ModeParameters(gain = 1.0f, capKg = 50.0f)
             VitruvianDeviceManager.EchoDifficulty.HARDER -> ModeParameters(gain = 1.25f, capKg = 40.0f)
             VitruvianDeviceManager.EchoDifficulty.HARDEST -> ModeParameters(gain = 1.667f, capKg = 30.0f)
+            VitruvianDeviceManager.EchoDifficulty.EPIC -> ModeParameters(gain = 3.333f, capKg = 15.0f)
         }
     }
 }

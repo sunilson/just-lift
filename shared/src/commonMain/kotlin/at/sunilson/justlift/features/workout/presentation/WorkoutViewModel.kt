@@ -2,6 +2,7 @@ package at.sunilson.justlift.features.workout.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import at.sunilson.justlift.features.workout.data.DifficultySettings
 import at.sunilson.justlift.features.workout.data.VitruvianDeviceManager
 import at.sunilson.justlift.features.workout.data.WorkoutSettings
 import at.sunilson.justlift.features.workout.data.WorkoutSettingsRepository
@@ -52,6 +53,8 @@ open class WorkoutViewModel(
 
     val currentUserId = userRepository.currentUserId.stateIn(viewModelScope, SharingStarted.Eagerly, 1)
     val twoUserMode = userRepository.twoUserMode.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val setsPerUser = userRepository.setsPerUser.stateIn(viewModelScope, SharingStarted.Eagerly, 1)
+    private var setsCompletedForCurrentUser: Int = 0
 
     private val _state = MutableStateFlow(WorkoutScreenState())
     val state: StateFlow<WorkoutScreenState> = _state.asStateFlow()
@@ -76,6 +79,15 @@ open class WorkoutViewModel(
         observeSavedDevice()
         observeAutoConnect()
         observeCurrentUser()
+        observeSetsPerUser()
+    }
+
+    private fun observeSetsPerUser() {
+        viewModelScope.launch {
+            setsPerUser.collect { value ->
+                _state.update { it.copy(setsPerUser = value) }
+            }
+        }
     }
 
     private fun observeCurrentUser() {
@@ -83,10 +95,13 @@ open class WorkoutViewModel(
             currentUserId.collect { userId ->
                 runCatching { workoutSettingsRepository.get(userId) }
                     .onSuccess { settings ->
+                        val diff = runCatching {
+                            workoutSettingsRepository.getDifficultySettings(userId, settings.echoDifficulty)
+                        }.getOrDefault(DifficultySettings())
                         _state.update { s ->
                             s.copy(
                                 echoDifficulty = settings.echoDifficulty,
-                                repetitionsSliderValue = settings.repetitions,
+                                repetitionsSliderValue = diff.repetitions,
                                 eccentricSliderValue = settings.eccentricPercentage,
                                 useTts = settings.useTts,
                                 fixedWeightMode = settings.fixedWeightMode,
@@ -174,8 +189,20 @@ open class WorkoutViewModel(
     }
 
     fun onRepetitionsSliderValueChange(value: Float) {
-        _state.update { it.copy(repetitionsSliderValue = value.toInt()) }
-        persistCurrentSettings()
+        val newReps = value.toInt()
+        _state.update { it.copy(repetitionsSliderValue = newReps) }
+        val userId = currentUserId.value
+        val difficulty = state.value.echoDifficulty
+        viewModelScope.launch {
+            val current = runCatching {
+                workoutSettingsRepository.getDifficultySettings(userId, difficulty)
+            }.getOrDefault(DifficultySettings())
+            workoutSettingsRepository.saveDifficultySettings(
+                userId,
+                difficulty,
+                current.copy(repetitions = newReps)
+            )
+        }
     }
 
     fun onUseTtsChange(useTts: Boolean) {
@@ -196,6 +223,12 @@ open class WorkoutViewModel(
     fun onEchoDifficultyChange(difficulty: VitruvianDeviceManager.EchoDifficulty) {
         _state.update { it.copy(echoDifficulty = difficulty, difficultySheetSelection = difficulty) }
         persistCurrentSettings()
+        viewModelScope.launch {
+            val diff = runCatching {
+                workoutSettingsRepository.getDifficultySettings(currentUserId.value, difficulty)
+            }.getOrDefault(DifficultySettings())
+            _state.update { it.copy(repetitionsSliderValue = diff.repetitions) }
+        }
     }
 
     private fun persistCurrentSettings() {
@@ -205,7 +238,6 @@ open class WorkoutViewModel(
                 currentUserId.value,
                 WorkoutSettings(
                     echoDifficulty = s.echoDifficulty,
-                    repetitions = s.repetitionsSliderValue,
                     eccentricPercentage = s.eccentricSliderValue,
                     useTts = s.useTts,
                     fixedWeightMode = s.fixedWeightMode,
@@ -379,9 +411,14 @@ open class WorkoutViewModel(
                         }
 
                         if (twoUserMode.value) {
-                            val nextUser = if (setUserId == 1) 2 else 1
-                            userRepository.switchToUser(nextUser)
-                            platformNotifier.showShortMessage("Switched to User $nextUser")
+                            setsCompletedForCurrentUser += 1
+                            if (setsCompletedForCurrentUser >= setsPerUser.value) {
+                                val nextUser = if (setUserId == 1) 2 else 1
+                                setsCompletedForCurrentUser = 0
+                                soundPlayer.playUserSwitch(nextUser, state.value.useTts)
+                                userRepository.switchToUser(nextUser)
+                                platformNotifier.showShortMessage("Switched to User $nextUser")
+                            }
                         }
                     }
                 }
@@ -724,6 +761,7 @@ open class WorkoutViewModel(
     fun onUserSwitchClicked() {
         viewModelScope.launch {
             val nextUser = if (currentUserId.value == 1) 2 else 1
+            setsCompletedForCurrentUser = 0
             userRepository.switchToUser(nextUser)
             platformNotifier.showShortMessage("Switched to User $nextUser")
         }
@@ -731,7 +769,15 @@ open class WorkoutViewModel(
 
     fun onTwoUserModeChange(enabled: Boolean) {
         viewModelScope.launch {
+            setsCompletedForCurrentUser = 0
             userRepository.setTwoUserMode(enabled)
+        }
+    }
+
+    fun onSetsPerUserChange(value: Int) {
+        viewModelScope.launch {
+            setsCompletedForCurrentUser = 0
+            userRepository.setSetsPerUser(value)
         }
     }
 

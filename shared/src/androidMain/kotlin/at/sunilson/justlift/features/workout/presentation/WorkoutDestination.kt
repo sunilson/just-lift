@@ -32,6 +32,7 @@ fun WorkoutDestination(
         onEchoDifficultyChange = viewModel::onEchoDifficultyChange,
         onUseTtsChange = viewModel::onUseTtsChange,
         onTwoUserModeChange = viewModel::onTwoUserModeChange,
+        onSetsPerUserChange = viewModel::onSetsPerUserChange,
         onFixedWeightModeChange = viewModel::onFixedWeightModeChange,
         onFixedWeightKgChange = viewModel::onFixedWeightKgChange,
         onOpenDifficultySettings = viewModel::onOpenDifficultySettings,

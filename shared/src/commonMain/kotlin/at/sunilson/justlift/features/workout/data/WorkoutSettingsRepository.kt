@@ -6,8 +6,9 @@ import kotlinx.coroutines.flow.Flow
  * Repository for persisting and restoring workout defaults.
  * Stores:
  * - echo difficulty
- * - repetitions value
  * - eccentric percentage (0f..130f as UI uses percent)
+ *
+ * Repetitions are stored per (user, difficulty) via DifficultySettings.
  */
 interface WorkoutSettingsRepository {
     fun settingsFlow(userId: Int): Flow<WorkoutSettings>
@@ -40,7 +41,6 @@ interface WorkoutSettingsRepository {
 
 data class WorkoutSettings(
     val echoDifficulty: VitruvianDeviceManager.EchoDifficulty = VitruvianDeviceManager.EchoDifficulty.WARMUP,
-    val repetitions: Int = 8,
     val eccentricPercentage: Float = 100f,
     val useTts: Boolean = false,
     val fixedWeightMode: Boolean = false,

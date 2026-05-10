@@ -105,6 +105,6 @@ interface VitruvianDeviceManager {
     )
 
     enum class EchoDifficulty {
-        WARMUP, HARD, HARDER, HARDEST //, EPIC
+        WARMUP, HARD, HARDER, HARDEST, EPIC
     }
 }

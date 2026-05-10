@@ -14,7 +14,9 @@ import at.sunilson.justlift.features.workout.data.database.createIosDatabase
 import at.sunilson.justlift.features.workout.presentation.WorkoutViewModel
 import at.sunilson.justlift.platform.AppSoundPlayer
 import at.sunilson.justlift.platform.IosNotifier
+import at.sunilson.justlift.platform.IosWorkoutServiceController
 import at.sunilson.justlift.platform.PlatformNotifier
+import at.sunilson.justlift.platform.WorkoutServiceController
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.bind
 import org.koin.dsl.module
@@ -23,6 +25,7 @@ val iosModule = module {
     singleOf(::AppSoundPlayer)
     singleOf(::UserRepositoryImpl) bind UserRepository::class
     singleOf(::IosNotifier) bind PlatformNotifier::class
+    singleOf(::IosWorkoutServiceController) bind WorkoutServiceController::class
 
     single<IosAppDatabase> { createIosDatabase() }
     single<WorkoutHistoryDao> { get<IosAppDatabase>().workoutHistoryDao() }

@@ -6,7 +6,8 @@
       "WebFetch(domain:central.sonatype.com)",
       "WebFetch(domain:m3.material.io)",
       "WebFetch(domain:support.google.com)",
-      "WebFetch(domain:supercharge.design)"
+      "WebFetch(domain:supercharge.design)",
+      "WebFetch(domain:api.github.com)"
     ]
   }
 }

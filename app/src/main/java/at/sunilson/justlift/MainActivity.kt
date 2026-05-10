@@ -11,7 +11,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.animation.doOnEnd
 import androidx.core.view.WindowCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import at.sunilson.justlift.shared.audio.AppSoundPlayer
+import at.sunilson.justlift.platform.AppSoundPlayer
+import at.sunilson.justlift.platform.WorkoutServiceController
 import at.sunilson.justlift.shared.presentation.theme.JustLiftTheme
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -20,6 +21,7 @@ class MainActivity : ComponentActivity() {
 
     private val mainViewModel: MainViewModel by viewModel()
     private val appSoundPlayer: AppSoundPlayer by inject()
+    private val workoutServiceController: WorkoutServiceController by inject()
     private var isReady = false
 
     override fun onResume() {
@@ -50,6 +52,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         appSoundPlayer.maximizeVolume()
+        workoutServiceController.start()
 
         // Keep splash screen visible while app initializes
         splashScreen.setKeepOnScreenCondition { !isReady }

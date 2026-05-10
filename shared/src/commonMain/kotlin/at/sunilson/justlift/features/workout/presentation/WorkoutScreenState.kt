@@ -41,5 +41,6 @@ data class WorkoutScreenState(
     val tendencies: List<ExerciseTrend> = emptyList(),
     val selectedTrendTimeframe: TrendTimeframe = TrendTimeframe.ONE_WEEK,
     val showExerciseNameEditor: Boolean = false,
-    val allExerciseNames: List<String> = emptyList()
+    val allExerciseNames: List<String> = emptyList(),
+    val setsPerUser: Int = 1
 )

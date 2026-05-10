@@ -40,7 +40,8 @@ actual class AppSoundPlayer(private val context: Context) : TextToSpeech.OnInitL
             KEY_START to R.raw.start,
             KEY_DONE to R.raw.done,
             KEY_REP_REGULAR to R.raw.rep_regular,
-            KEY_START_COUNTDOWN to R.raw.countdown_three_sec
+            KEY_START_COUNTDOWN to R.raw.countdown_three_sec,
+            KEY_USER_SWITCH to R.raw.ib_core_sound_new_message
         )
 
         soundIdByKey = resIdByKey.mapValues { (_, res) -> soundPool.load(context, res, 1) }
@@ -84,6 +85,10 @@ actual class AppSoundPlayer(private val context: Context) : TextToSpeech.OnInitL
         }
     }
 
+    actual fun playUserSwitch(nextUserId: Int, useTts: Boolean) {
+        if (useTts) speak("Switched to user $nextUserId") else play(KEY_USER_SWITCH)
+    }
+
     actual fun maximizeVolume() {
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
@@ -119,5 +124,6 @@ actual class AppSoundPlayer(private val context: Context) : TextToSpeech.OnInitL
         private const val KEY_START = "start"
         private const val KEY_DONE = "done"
         private const val KEY_REP_REGULAR = "rep_regular"
+        private const val KEY_USER_SWITCH = "user_switch"
     }
 }

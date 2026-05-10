@@ -130,8 +130,9 @@ android {
     }
 }
 
-// Room KSP for all targets
+// KSP for all targets
 dependencies {
+    add("kspAndroid", libs.koin.ksp.compiler)
     add("kspAndroid", libs.room.compiler)
     add("kspIosArm64", libs.room.compiler)
     add("kspIosSimulatorArm64", libs.room.compiler)

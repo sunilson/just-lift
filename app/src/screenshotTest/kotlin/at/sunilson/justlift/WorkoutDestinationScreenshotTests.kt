@@ -126,6 +126,8 @@ private fun `Difficulty settings sheet`() {
                 onUseTtsChange = {},
                 twoUserMode = false,
                 onTwoUserModeChange = {},
+                setsPerUser = 1,
+                onSetsPerUserChange = {},
                 onResetSelected = {},
                 onEditExerciseNames = {}
             )

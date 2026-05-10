@@ -49,6 +49,8 @@ fun DifficultySettingsSheet(
     onUseTtsChange: (Boolean) -> Unit,
     twoUserMode: Boolean,
     onTwoUserModeChange: (Boolean) -> Unit,
+    setsPerUser: Int,
+    onSetsPerUserChange: (Int) -> Unit,
     fixedWeightMode: Boolean,
     onFixedWeightModeChange: (Boolean) -> Unit,
     fixedWeightKg: Float,
@@ -230,6 +232,46 @@ fun DifficultySettingsSheet(
                     modifier = Modifier.weight(1f)
                 )
             }
+
+            if (twoUserMode) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Sets per user",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = setsPerUser.toString(),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Slider(
+                        value = setsPerUser.toFloat(),
+                        onValueChange = { onSetsPerUserChange(it.toInt().coerceIn(1, 10)) },
+                        valueRange = 1f..10f,
+                        steps = 8,
+                        colors = SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                            inactiveTrackColor = MaterialTheme.colorScheme.outline
+                        )
+                    )
+                }
+            }
         }
 
         // Actions Section
@@ -325,6 +367,7 @@ private fun DifficultyChip(
         VitruvianDeviceManager.EchoDifficulty.HARD -> "Hard"
         VitruvianDeviceManager.EchoDifficulty.HARDER -> "Harder"
         VitruvianDeviceManager.EchoDifficulty.HARDEST -> "Max"
+        VitruvianDeviceManager.EchoDifficulty.EPIC -> "Epic"
     }
     Text(
         text = displayName,

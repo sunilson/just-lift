@@ -81,6 +81,7 @@ fun WorkoutConfigurationWidget(
                             EchoDifficulty.HARD -> "Hard"
                             EchoDifficulty.HARDER -> "Harder"
                             EchoDifficulty.HARDEST -> "Max"
+                            EchoDifficulty.EPIC -> "Epic"
                         }
                         DifficultyChip(
                             text = displayName,
